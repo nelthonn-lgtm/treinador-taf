@@ -1,0 +1,162 @@
+// Estado local (fica só no celular). Inclui progressão por níveis, XP e conquistas.
+import { RUN_LEVELS, STRENGTH_TRACKS } from './program.js';
+
+const KEY = 'tafpprn.v1';
+
+const DEFAULT = () => ({
+  v: 1,
+  profile: {
+    onboarded: false, nome: '', sexo: 'M', peso: 75, tafDate: '', startDate: hoje(),
+    cadence: 170, voice: true, announce: 400, showMap: true,
+    edital: { barra: 3, iso: 5, abd: 15, abdF: 10, corrida: 2000, corridaF: 1600 },
+    metas: { barra: 6, iso: 15, abd: 25, corrida: 2400 },
+    equip: { elastico: true, barraFixa: 'praca', superband: false },
+    tenisKmInicial: 0,
+  },
+  checkins: {},
+  sessions: [],
+  tests: [],
+  levels: { run: 0, barra: 0, core: 0, pernas: 0 },
+  prog: { run: 0, barra: 0, core: 0, pernas: 0 },
+  runIdx: 0,
+  forcaIdx: 0,
+  water: {},
+  xp: 0,
+  badges: {},
+});
+
+export function hoje(d = new Date()) {
+  const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return z.toISOString().slice(0, 10);
+}
+
+let state;
+export function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    state = raw ? merge(DEFAULT(), JSON.parse(raw)) : DEFAULT();
+  } catch { state = DEFAULT(); }
+  return state;
+}
+function merge(base, data) {
+  for (const k of Object.keys(data)) {
+    if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k]) && data[k] && typeof data[k] === 'object' && !Array.isArray(data[k])) base[k] = merge(base[k], data[k]);
+    else base[k] = data[k];
+  }
+  return base;
+}
+export function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); return true; } catch { return false; }
+}
+export const S = () => state;
+export function resetAll() { state = DEFAULT(); save(); }
+export function importJSON(txt) { const d = JSON.parse(txt); if (!d || !d.profile) throw new Error('Arquivo inválido'); state = merge(DEFAULT(), d); save(); }
+export function exportJSON() { return JSON.stringify(state, null, 1); }
+
+export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+// ---------- Progressão ----------
+export function trackInfo(track) {
+  if (track === 'run') return { levels: RUN_LEVELS, need: 3 };
+  const t = STRENGTH_TRACKS[track];
+  return { levels: t.levels, need: t.levels[state.levels[track]].sessoes };
+}
+
+export function bestTest(type, sinceDays = null) {
+  const lim = sinceDays ? Date.now() - sinceDays * 864e5 : 0;
+  const arr = state.tests.filter((t) => t.type === type && new Date(t.date).getTime() >= lim);
+  return arr.length ? Math.max(...arr.map((t) => t.value)) : null;
+}
+
+export function gateOk(track) {
+  if (track === 'run') return true;
+  const lv = STRENGTH_TRACKS[track].levels[state.levels[track]];
+  if (!lv.gate) return true;
+  let min = lv.gate.min;
+  if (lv.gate.teste === 'abd') min = state.profile.sexo === 'F' ? state.profile.edital.abdF : state.profile.edital.abd;
+  const b = bestTest(lv.gate.teste);
+  return b !== null && b >= min;
+}
+
+// Registra uma sessão concluída num trilho. dor = dor máxima relatada na região após o treino.
+// Retorna mensagem sobre progressão.
+export function registrarProgresso(track, dor) {
+  const { levels, need } = trackInfo(track);
+  const lv = state.levels[track];
+  if (dor >= 5) { state.prog[track] = 0; return `Dor ${dor}/10: o nível ${lv + 1} será repetido do início. Se persistir, volte um nível em Mais › Níveis.`; }
+  if (dor >= 3) return `Dor ${dor}/10: sessão registrada, mas não conta para subir de nível.`;
+  state.prog[track] = (state.prog[track] || 0) + 1;
+  if (state.prog[track] >= need && lv < levels.length - 1) {
+    if (!gateOk(track)) return `Sessões completas no nível. Falta o critério: ${STRENGTH_TRACKS[track].levels[lv].gate.txt}.`;
+    state.levels[track] = lv + 1; state.prog[track] = 0;
+    if (track === 'run') state.runIdx = 0;
+    addXP(50);
+    const nome = track === 'run' ? `nível ${lv + 2} de corrida` : levels[lv + 1].nome;
+    return `Subiu de nível! Agora: ${nome}.`;
+  }
+  return `Progresso no nível: ${state.prog[track]}/${need === 999 ? '∞' : need}.`;
+}
+
+export function mudarNivel(track, delta) {
+  const { levels } = trackInfo(track);
+  state.levels[track] = Math.max(0, Math.min(levels.length - 1, state.levels[track] + delta));
+  state.prog[track] = 0;
+  if (track === 'run') state.runIdx = 0;
+  save();
+}
+
+// ---------- XP e conquistas ----------
+export function addXP(n) { state.xp = (state.xp || 0) + n; }
+export function nivelXP() {
+  const xp = state.xp || 0;
+  const lvl = Math.floor(Math.sqrt(xp / 40)) + 1;
+  const base = 40 * (lvl - 1) ** 2, prox = 40 * lvl ** 2;
+  return { lvl, xp, pct: Math.round(((xp - base) / (prox - base)) * 100), falta: prox - xp };
+}
+
+export const BADGES = [
+  { id: 'primeiro_checkin', icone: '✅', nome: 'Primeiro check-in', desc: 'Respondeu o check-in de dor.' },
+  { id: 'primeira_corrida', icone: '👟', nome: 'Primeiro treino de corrida', desc: 'Concluiu um treino de corrida.' },
+  { id: 'primeira_forca', icone: '💪', nome: 'Primeiro treino de força', desc: 'Concluiu um treino de força.' },
+  { id: 'streak7', icone: '🔥', nome: '7 dias seguidos', desc: '7 check-ins em dias seguidos.' },
+  { id: 'streak30', icone: '🏅', nome: '30 dias seguidos', desc: '30 check-ins em dias seguidos.' },
+  { id: 'km10', icone: '🛣️', nome: '10 km acumulados', desc: 'Somou 10 km de corrida/caminhada.' },
+  { id: 'km100', icone: '🌎', nome: '100 km acumulados', desc: 'Somou 100 km.' },
+  { id: 'trote_continuo', icone: '🏃', nome: '15 min contínuos', desc: 'Chegou ao trote contínuo (nível 11).' },
+  { id: 'hang30', icone: '🧗', nome: 'Dead hang 30 s', desc: 'Ficou 30 s pendurado na barra.' },
+  { id: 'primeira_barra', icone: '🎯', nome: 'Primeira barra', desc: 'Registrou a primeira barra livre.' },
+  { id: 'barra_edital', icone: '🏆', nome: 'Barra do edital', desc: 'Atingiu o mínimo do edital na barra.' },
+  { id: 'abd_edital', icone: '🏆', nome: 'Abdominal do edital', desc: 'Atingiu o mínimo do edital no abdominal.' },
+  { id: 'corrida_edital', icone: '🏆', nome: 'Corrida do edital', desc: 'Atingiu a distância mínima do edital em 12 min.' },
+  { id: 'meta2400', icone: '🥇', nome: 'Meta 2.400 m', desc: 'Correu sua meta em 12 minutos.' },
+  { id: 'agua7', icone: '💧', nome: 'Hidratação em dia', desc: 'Bateu a meta de água em 7 dias.' },
+];
+
+export function streak() {
+  let n = 0; const d = new Date();
+  if (!state.checkins[hoje(d)]) d.setDate(d.getDate() - 1);
+  while (state.checkins[hoje(d)]) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+export function kmTotal() { return state.sessions.reduce((a, s) => a + (s.dist || 0), 0) / 1000; }
+export function metaAgua() { return Math.round(((state.profile.peso || 70) * 35) / 250); } // copos de 250 ml
+
+export function checkBadges() {
+  const novos = []; const P = state.profile;
+  const give = (id, cond) => { if (cond && !state.badges[id]) { state.badges[id] = hoje(); novos.push(BADGES.find((b) => b.id === id)); addXP(25); } };
+  give('primeiro_checkin', Object.keys(state.checkins).length > 0);
+  give('primeira_corrida', state.sessions.some((s) => s.kind === 'run'));
+  give('primeira_forca', state.sessions.some((s) => s.kind === 'forca'));
+  const st = streak(); give('streak7', st >= 7); give('streak30', st >= 30);
+  const km = kmTotal(); give('km10', km >= 10); give('km100', km >= 100);
+  give('trote_continuo', state.levels.run >= 10);
+  give('hang30', (bestTest('hang') || 0) >= 30);
+  give('primeira_barra', (bestTest('barra') || 0) >= 1);
+  give('barra_edital', P.sexo === 'M' ? (bestTest('barra') || 0) >= P.edital.barra : (bestTest('iso') || 0) >= P.edital.iso);
+  give('abd_edital', (bestTest('abd') || 0) >= (P.sexo === 'F' ? P.edital.abdF : P.edital.abd));
+  const run = bestTest('run12') || 0;
+  give('corrida_edital', run >= (P.sexo === 'F' ? P.edital.corridaF : P.edital.corrida));
+  give('meta2400', run >= P.metas.corrida);
+  const dias = Object.entries(state.water).filter(([, n]) => n >= metaAgua()).length; give('agua7', dias >= 7);
+  return novos;
+}

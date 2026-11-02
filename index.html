@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Treinador TAF</title>
+<meta name="description" content="Plano de treino seguro para o TAF da Polícia Penal/RN: corrida com GPS, barra do zero, abdominal e check-in de dor.">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main id="view"></main>
+<nav id="tabs">
+  <a href="#hoje" data-r="hoje"><span>🏠</span>Hoje</a>
+  <a href="#correr" data-r="correr"><span>🏃</span>Correr</a>
+  <a href="#crono" data-r="crono"><span>⏱️</span>Cronômetro</a>
+  <a href="#evolucao" data-r="evolucao"><span>📊</span>Evolução</a>
+  <a href="#mais" data-r="mais"><span>☰</span>Mais</a>
+</nav>
+<div id="modal"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
