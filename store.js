@@ -11,7 +11,7 @@ const DEFAULT = () => ({
     edital: { barra: 3, iso: 5, abd: 15, abdF: 10, corrida: 2000, corridaF: 1600 },
     metas: { barra: 6, iso: 15, abd: 25, corrida: 2400 },
     equip: { elastico: true, barraFixa: 'praca', superband: false },
-    tenisKmInicial: 0,
+    tenisKmInicial: 0, tenis: 'Olympikus Corre Max', altura: null, pesoInicial: null, pesoMeta: null,
   },
   checkins: {},
   sessions: [],
@@ -21,6 +21,7 @@ const DEFAULT = () => ({
   runIdx: 0,
   forcaIdx: 0,
   water: {},
+  pesos: [],
   xp: 0,
   badges: {},
 });
@@ -140,6 +141,9 @@ export const BADGES = [
   { id: 'abd_edital', icone: '🏆', nome: 'Abdominal do edital', desc: 'Atingiu o mínimo do edital no abdominal.' },
   { id: 'corrida_edital', icone: '🏆', nome: 'Corrida do edital', desc: 'Atingiu a distância mínima do edital em 12 min.' },
   { id: 'meta2400', icone: '🥇', nome: 'Meta 2.400 m', desc: 'Correu sua meta em 12 minutos.' },
+  { id: 'peso_reg', icone: '⚖️', nome: 'Peso registrado', desc: 'Registrou o peso pela primeira vez.' },
+  { id: 'peso3', icone: '📉', nome: '-3 kg', desc: 'Perdeu 3 kg desde o início.' },
+  { id: 'peso6', icone: '🏋️', nome: '-6 kg', desc: 'Perdeu 6 kg desde o início.' },
   { id: 'agua7', icone: '💧', nome: 'Hidratação em dia', desc: 'Bateu a meta de água em 7 dias.' },
 ];
 
@@ -150,6 +154,22 @@ export function streak() {
   return n;
 }
 export function kmTotal() { return state.sessions.reduce((a, s) => a + (s.dist || 0), 0) / 1000; }
+// Peso e IMC
+export function imc(peso = state.profile.peso, alt = state.profile.altura) { return peso && alt ? peso / (alt * alt) : null; }
+export function faixaIMC(v) { return v === null ? '' : v < 18.5 ? 'abaixo do peso' : v < 25 ? 'peso adequado' : v < 30 ? 'sobrepeso' : v < 35 ? 'obesidade grau I' : 'obesidade grau II ou mais'; }
+export function registrarPeso(kg, data = hoje()) {
+  state.pesos = state.pesos.filter((x) => x.date !== data);
+  state.pesos.push({ date: data, kg }); state.pesos.sort((a, b) => a.date.localeCompare(b.date));
+  if (!state.profile.pesoInicial) state.profile.pesoInicial = state.pesos[0].kg;
+  state.profile.peso = state.pesos[state.pesos.length - 1].kg;
+}
+// Ritmo saudável: até ~0,7% do peso por semana
+export function ritmoPeso() {
+  const ps = state.pesos; if (ps.length < 2) return null;
+  const a = ps[0], b = ps[ps.length - 1];
+  const sem = (new Date(b.date) - new Date(a.date)) / (7 * 864e5); if (sem < 1) return null;
+  return (a.kg - b.kg) / sem; // kg perdidos por semana
+}
 export function metaAgua() { return Math.round(((state.profile.peso || 70) * 35) / 250); } // copos de 250 ml
 
 export function checkBadges() {
@@ -168,6 +188,9 @@ export function checkBadges() {
   const run = bestTest('run12') || 0;
   give('corrida_edital', run >= (P.sexo === 'F' ? P.edital.corridaF : P.edital.corrida));
   give('meta2400', run >= P.metas.corrida);
+  const pi = state.profile.pesoInicial, pa = state.profile.peso;
+  give('peso_reg', state.pesos.length > 0);
+  give('peso3', pi && pa && pi - pa >= 3); give('peso6', pi && pa && pi - pa >= 6);
   const dias = Object.entries(state.water).filter(([, n]) => n >= metaAgua()).length; give('agua7', dias >= 7);
   return novos;
 }

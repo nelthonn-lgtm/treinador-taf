@@ -137,7 +137,8 @@ rotas.boasvindas = () => {
   <div class="card"><h3>Seus dados</h3>
   <label>Nome<input id="ob-nome" value="${esc(p.nome)}" placeholder="Como quer ser chamado"></label>
   <div class="grid2"><label>Sexo (define os índices do edital)<select id="ob-sexo"><option value="M">Masculino</option><option value="F">Feminino</option></select></label>
-  <label>Peso (kg)<input id="ob-peso" type="number" inputmode="decimal" value="${p.peso}"></label></div>
+  <label>Peso (kg)<input id="ob-peso" type="text" inputmode="decimal" step="0.1" value="${p.peso}"></label></div>
+  <label>Altura (m)<input id="ob-alt" type="text" inputmode="decimal" step="0.01" value="${p.altura || ''}" placeholder="1,71"></label>
   <label>Data do TAF (deixe em branco se ainda não saiu)<input id="ob-taf" type="date" value="${p.tafDate}"></label>
   <h3>Equipamentos</h3>
   <label class="check"><input type="checkbox" id="ob-elas" checked> Tenho elástico de resistência (ou vou comprar)</label>
@@ -149,7 +150,8 @@ rotas.boasvindas = () => {
   <button class="btn big" id="ob-go">Montar meu plano</button></div>`;
   $('#ob-go').onclick = () => {
     if (!$('#ob-ok').checked) return toast('Marque que entendeu o aviso de segurança.');
-    Object.assign(p, { nome: $('#ob-nome').value.trim(), sexo: $('#ob-sexo').value, peso: +$('#ob-peso').value || 75, tafDate: $('#ob-taf').value, startDate: hoje(), onboarded: true });
+    Object.assign(p, { nome: $('#ob-nome').value.trim(), sexo: $('#ob-sexo').value, altura: +String($('#ob-alt').value).replace(',', '.') || p.altura, tafDate: $('#ob-taf').value, startDate: hoje(), onboarded: true });
+    St.registrarPeso(+String($('#ob-peso').value).replace(',', '.') || 75);
     p.equip = { elastico: $('#ob-elas').checked, superband: $('#ob-band').checked, barraFixa: $('#ob-barra').value };
     S().levels.run = $('#ob-cam').checked && $('#ob-tro').checked ? 1 : 0;
     save(); D.unlockAudio(); ir('#hoje');
@@ -171,6 +173,7 @@ rotas.hoje = () => {
   <div class="cups">${Array.from({ length: metaA }, (_, i) => `<span class="${i < agua ? 'on' : ''}">💧</span>`).join('')}</div>
   <div class="row gap"><button class="btn ghost" id="ag-m">− copo</button><button class="btn" id="ag-p">+ copo (250 ml)</button></div>
   ${P.SEMANA[new Date().getDay()].tipo === 'run' ? '<small>Dia de corrida: beba mais 500 ml além da meta.</small>' : ''}</div>
+  ${cardPeso()}
   <div class="card"><h3>Próximos dias</h3><div class="semana">${proximos()}</div></div>
   <div class="card tip"><h3>Dica do dia</h3><p>${dicaDoDia()}</p></div>`;
   if (!ci) bindCheckin();
@@ -178,10 +181,34 @@ rotas.hoje = () => {
     $('#ci-refazer') && ($('#ci-refazer').onclick = () => { delete S().checkins[h]; save(); render(); });
     bindPlano(plano);
   }
+  bindPeso();
   $('#ag-p').onclick = () => { s.water[h] = agua + 1; if (agua + 1 === metaA) { St.addXP(10); toast('Meta de água batida! +10 XP'); } save(); celebrar(St.checkBadges()); save(); render(); };
   $('#ag-m').onclick = () => { s.water[h] = Math.max(0, agua - 1); save(); render(); };
 };
 
+function cardPeso() {
+  const s = S(), p = s.profile, ult = s.pesos[s.pesos.length - 1];
+  const dias = ult ? Math.round((new Date(hoje()) - new Date(ult.date)) / 864e5) : 999;
+  const v = St.imc();
+  const resumo = ult ? `<p><b>${ult.kg.toFixed(1)} kg</b>${v ? ` · IMC ${v.toFixed(1)} (${St.faixaIMC(v)})` : ''}${p.pesoInicial && p.pesoInicial !== ult.kg ? ` · <b>${(ult.kg - p.pesoInicial > 0 ? '+' : '') + (ult.kg - p.pesoInicial).toFixed(1)} kg</b> desde o início` : ''}${p.pesoMeta ? ` · meta ${p.pesoMeta} kg` : ''}</p>` : '<p>Registre seu peso para acompanhar a evolução.</p>';
+  if (dias < 7) return `<div class="card"><div class="row between"><h3>⚖️ Peso</h3><small>próxima pesagem em ${7 - dias} dia${7 - dias > 1 ? 's' : ''}</small></div>${resumo}</div>`;
+  return `<div class="card hl"><h3>⚖️ Pesagem da semana</h3>${resumo}<p class="muted small">Pese-se 1 vez por semana, de manhã, em jejum, depois de ir ao banheiro, sempre na mesma balança.</p>
+  <div class="row gap"><input id="pz-kg" type="text" inputmode="decimal" step="0.1" placeholder="Peso em kg" style="flex:1">${p.altura ? '' : '<input id="pz-alt" type="text" inputmode="decimal" step="0.01" placeholder="Altura (m)" style="flex:1">'}<button class="btn" id="pz-ok">Salvar</button></div></div>`;
+}
+function bindPeso() {
+  const b = $('#pz-ok'); if (!b) return;
+  b.onclick = () => {
+    const kg = +String($('#pz-kg').value).replace(',', '.');
+    if (!kg || kg < 30 || kg > 250) return toast('Digite um peso válido.');
+    const ant = S().pesos[S().pesos.length - 1];
+    const alt = $('#pz-alt') && +String($('#pz-alt').value).replace(',', '.');
+    if (alt && alt > 1 && alt < 2.3) S().profile.altura = alt;
+    St.registrarPeso(kg); St.addXP(10); save(); const nov = St.checkBadges(); save();
+    let msg = 'Peso registrado (+10 XP).';
+    if (ant) { const d = kg - ant.kg, lim = ant.kg * 0.01; msg = d < -lim ? `${d.toFixed(1)} kg. Perda rápida: priorize comida de verdade e proteína para não perder músculo.` : d < 0 ? `${d.toFixed(1)} kg. Ritmo ideal, continue assim!` : d === 0 ? 'Peso estável. Oscilações semanais são normais; olhe a tendência do mês.' : `+${d.toFixed(1)} kg. Pode ser retenção de líquido; observe a tendência do mês.`; }
+    render(); toast(msg, 5000); celebrar(nov);
+  };
+}
 function cardCheckin() {
   return `<div class="card hl"><h3>Check-in de hoje</h3><p>Como estão as articulações agora? (0 = nada, 10 = pior dor possível)</p>
   ${slider('ci-j', 'Joelhos')}${slider('ci-o', 'Ombros')}
@@ -247,7 +274,9 @@ const DICAS = [
   'Dor que aparece durante o treino e piora a cada minuto = pare. Dor leve (até 2/10) que some no aquecimento costuma ser aceitável.',
   'Na barra, a escápula trabalha antes do braço: comece cada repetição puxando os ombros para baixo, longe das orelhas.',
   'Nunca solte o corpo de uma vez ao descer da barra. Use um banco para subir e descer, protegendo o ombro.',
-  'O Olympikus Corre 4 tem boa durabilidade para treinos leves; acompanhe a quilometragem do tênis em Mais › Dicas.',
+  'Cada 1 kg perdido tira cerca de 4 kg de carga do joelho a cada passada. Perder peso devagar é o melhor protetor de joelho que existe.',
+  'Barra fixa é força relativa: cada kg a menos torna a barra mais fácil, mesmo sem ganhar força.',
+  'Acompanhe a quilometragem do seu tênis em Evolução: amortecimento gasto aumenta o impacto no joelho.',
   'Sono é treino: menos de 6 h por noite aumenta o risco de lesão. Se dormiu mal, marque "muito cansado" no check-in.',
   'No TAF, a corrida permite caminhar, mas não parar. Treine a estratégia: ritmo constante de 5:00/km desde a largada.',
   'Abdominal do edital: braços cruzados no peito e escápulas tocando o chão em toda repetição. Repetição incompleta não conta.',
@@ -572,7 +601,8 @@ rotas.evolucao = () => {
   <div class="card">${linha('Corrida 12 min', b('run12'), E.corrida, p.metas.corrida, 'm')}${F ? linha('Isometria na barra', b('iso'), E.barra, p.metas.iso, 's') : linha('Barra fixa', b('barra'), E.barra, p.metas.barra, 'reps')}${linha('Abdominal 60 s', b('abd'), E.abd, p.metas.abd, 'reps')}
   ${proj ? `<p class="nota">Estimativa para 12 min com base no seu melhor ritmo recente em treinos contínuos: <b>${proj} m</b>. É só uma referência; o simulado é que vale.</p>` : ''}</div>
   <div class="grid2"><div class="card mini"><small>Km acumulados</small><b>${St.kmTotal().toFixed(1)}</b></div><div class="card mini"><small>Sessões</small><b>${s.sessions.length}</b></div>
-  <div class="card mini"><small>Tênis (Corre 4)</small><b>${(St.kmTotal() + (+p.tenisKmInicial || 0)).toFixed(0)} km</b></div><div class="card mini"><small>Nível corrida</small><b>${s.levels.run + 1}/${P.RUN_LEVELS.length}</b></div></div>
+  <div class="card mini"><small>Tênis (${esc(p.tenis || 'tênis')})</small><b>${(St.kmTotal() + (+p.tenisKmInicial || 0)).toFixed(0)} km</b></div><div class="card mini"><small>Nível corrida</small><b>${s.levels.run + 1}/${P.RUN_LEVELS.length}</b></div></div>
+  <div class="card"><h3>Peso (kg)</h3>${pesoResumo()}<canvas id="c-peso"></canvas></div>
   <div class="card"><h3>Corrida 12 min (m)</h3><canvas id="c-run"></canvas></div>
   <div class="card"><h3>${F ? 'Isometria (s)' : 'Barra (reps)'} e suspensão (s)</h3><canvas id="c-barra"></canvas></div>
   <div class="card"><h3>Abdominal 60 s</h3><canvas id="c-abd"></canvas></div>
@@ -583,6 +613,13 @@ rotas.evolucao = () => {
   $$('[data-del]').forEach((x) => (x.onclick = () => confirmar('Apagar este registro?', 'Apagar', () => { const [k, id] = x.dataset.del.split(':'); s[k] = s[k].filter((i) => i.id !== id); save(); render(); })));
   desenharGraficos(F);
 };
+function pesoResumo() {
+  const s = S(), p = s.profile, v = St.imc(), r = St.ritmoPeso();
+  if (!s.pesos.length) return '<p class="muted">Registre o peso na tela Hoje.</p>';
+  const lim = (p.peso * 0.007).toFixed(1);
+  return `<p>Atual <b>${p.peso.toFixed(1)} kg</b>${v ? ` · IMC <b>${v.toFixed(1)}</b> (${St.faixaIMC(v)})` : ''} · início ${p.pesoInicial} kg${p.pesoMeta ? ` · meta ${p.pesoMeta} kg` : ''}</p>
+  ${r !== null ? `<p class="${r > p.peso * 0.01 ? 'nota' : 'muted'}">Ritmo: ${r >= 0 ? 'perdendo' : 'ganhando'} ${Math.abs(r).toFixed(2)} kg/semana${r > p.peso * 0.01 ? ' (rápido demais: risco de perder músculo e força na barra)' : ''}. Ritmo saudável: até ~${lim} kg/semana.</p>` : ''}`;
+}
 function projecao12() {
   const lim = Date.now() - 28 * 864e5;
   const ok = S().sessions.filter((x) => x.kind === 'run' && x.ts >= lim && x.dist >= 1500 && x.pace > 0 && x.pace < 480);
@@ -616,6 +653,7 @@ function desenharGraficos(F) {
   const cTxt = css.getPropertyValue('--muted').trim(), cGrid = css.getPropertyValue('--line').trim();
   Chart.defaults.color = cTxt; Chart.defaults.borderColor = cGrid; Chart.defaults.font.family = 'system-ui, sans-serif';
   const serie = (t) => s.tests.filter((x) => x.type === t).sort((a, b) => a.date.localeCompare(b.date));
+  const ref0 = (v) => ({ label: 'Meta', data: [], borderColor: '#22c55e', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, refValue: v });
   const ref = (v, n, cor) => ({ label: n, data: [], borderColor: cor, borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, refValue: v });
   const lineChart = (id, sets, refs) => {
     const labels = [...new Set(sets.flatMap((d) => d.pts.map((x) => x.date)))].sort();
@@ -624,6 +662,7 @@ function desenharGraficos(F) {
     refs.forEach((r) => ds.push({ ...r, data: labels.map(() => r.refValue) }));
     charts.push(new Chart($('#' + id), { type: 'line', data: { labels: labels.map(fmtData), datasets: ds }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12 } } }, scales: { y: { beginAtZero: false } } } }));
   };
+  if (s.pesos.length) { const ref = s.profile.pesoMeta ? [ref0(s.profile.pesoMeta)] : []; lineChart('c-peso', [{ label: 'Peso (kg)', pts: s.pesos.map((x) => ({ date: x.date, value: x.kg })), cor: '#0ea5e9' }], ref); } else { const c = $('#c-peso'); c && c.remove(); }
   lineChart('c-run', [{ label: 'Distância', pts: serie('run12'), cor: '#f97316' }], [ref(E.corrida, 'Edital', '#ef4444'), ref(p.metas.corrida, 'Meta', '#22c55e')]);
   lineChart('c-barra', [{ label: F ? 'Isometria (s)' : 'Barras', pts: serie(F ? 'iso' : 'barra'), cor: '#8b5cf6' }, { label: 'Suspensão (s)', pts: serie('hang'), cor: '#0ea5e9' }], [ref(E.barra, 'Edital', '#ef4444')]);
   lineChart('c-abd', [{ label: 'Abdominais', pts: serie('abd'), cor: '#14b8a6' }], [ref(E.abd, 'Edital', '#ef4444'), ref(p.metas.abd, 'Meta', '#22c55e')]);
@@ -657,7 +696,9 @@ rotas.perfil = () => {
   const p = S().profile;
   view.innerHTML = `<header class="top"><a href="#mais" class="back">‹</a><h1>Perfil</h1></header>
   <div class="card"><label>Nome<input id="p-nome" value="${esc(p.nome)}"></label>
-  <div class="grid2"><label>Sexo<select id="p-sexo"><option value="M" ${p.sexo === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${p.sexo === 'F' ? 'selected' : ''}>Feminino</option></select></label><label>Peso (kg)<input id="p-peso" type="number" value="${p.peso}"></label></div>
+  <div class="grid2"><label>Sexo<select id="p-sexo"><option value="M" ${p.sexo === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${p.sexo === 'F' ? 'selected' : ''}>Feminino</option></select></label><label>Altura (m)<input id="p-alt" type="text" inputmode="decimal" step="0.01" value="${p.altura || ''}"></label></div>
+  <div class="grid2"><label>Peso atual (kg)<input id="p-peso" type="text" inputmode="decimal" step="0.1" value="${p.peso}"></label><label>Meta de peso (kg)<input id="p-pmeta" type="text" inputmode="decimal" step="0.5" value="${p.pesoMeta || ''}" placeholder="opcional"></label></div>
+  <p class="muted small">Sugestão de meta: perder 5 a 10% do peso nos primeiros 3 a 6 meses${p.peso ? ` (${(p.peso * 0.9).toFixed(0)} a ${(p.peso * 0.95).toFixed(0)} kg)` : ''}. Para um plano alimentar, procure um nutricionista.</p>
   <label>Data do TAF<input id="p-taf" type="date" value="${p.tafDate}"></label></div>
   <div class="card"><h3>Minhas metas (com folga sobre o edital)</h3><div class="grid2">
   <label>Corrida 12 min (m)<input id="m-cor" type="number" value="${p.metas.corrida}"></label><label>Barra (reps)<input id="m-bar" type="number" value="${p.metas.barra}"></label>
@@ -670,13 +711,16 @@ rotas.perfil = () => {
   <label>Aviso de voz a cada<select id="p-ann"><option value="400" ${p.announce == 400 ? 'selected' : ''}>400 m (volta de pista)</option><option value="1000" ${p.announce == 1000 ? 'selected' : ''}>1 km</option><option value="200" ${p.announce == 200 ? 'selected' : ''}>200 m</option></select></label></div>
   <label class="check"><input type="checkbox" id="p-voz" ${p.voice ? 'checked' : ''}> Instruções por voz</label>
   <label class="check"><input type="checkbox" id="p-map" ${p.showMap ? 'checked' : ''}> Mostrar mapa (usa internet; desligue para poupar bateria)</label>
-  <label>Km que o tênis já tinha antes do app<input id="p-ten" type="number" value="${p.tenisKmInicial}"></label>
+  <div class="grid2"><label>Tênis<input id="p-tenis" value="${esc(p.tenis || '')}"></label><label>Km que o tênis já tinha<input id="p-ten" type="number" value="${p.tenisKmInicial}"></label></div>
   <h3>Equipamentos</h3><label class="check"><input type="checkbox" id="p-elas" ${p.equip.elastico ? 'checked' : ''}> Tenho elástico de resistência</label>
   <label class="check"><input type="checkbox" id="p-band" ${p.equip.superband ? 'checked' : ''}> Tenho superband</label></div>
   <button class="btn big" id="p-ok">Salvar</button>`;
   $('#p-ok').onclick = () => {
     const n = (id) => +$(id).value;
-    Object.assign(p, { nome: $('#p-nome').value.trim(), sexo: $('#p-sexo').value, peso: n('#p-peso') || p.peso, tafDate: $('#p-taf').value, cadence: n('#p-cad') || 170, announce: n('#p-ann'), voice: $('#p-voz').checked, showMap: $('#p-map').checked, tenisKmInicial: n('#p-ten') || 0 });
+    const novoPeso = +String($('#p-peso').value).replace(',', '.');
+    if (novoPeso && novoPeso !== p.peso) St.registrarPeso(novoPeso);
+    Object.assign(p, { altura: +String($('#p-alt').value).replace(',', '.') || p.altura, pesoMeta: +String($('#p-pmeta').value).replace(',', '.') || null, tenis: $('#p-tenis').value.trim() || p.tenis });
+    Object.assign(p, { nome: $('#p-nome').value.trim(), sexo: $('#p-sexo').value, tafDate: $('#p-taf').value, cadence: n('#p-cad') || 170, announce: n('#p-ann'), voice: $('#p-voz').checked, showMap: $('#p-map').checked, tenisKmInicial: n('#p-ten') || 0 });
     p.metas = { corrida: n('#m-cor'), barra: n('#m-bar'), abd: n('#m-abd'), iso: n('#m-iso') };
     p.edital = { barra: n('#e-bar'), iso: n('#e-iso'), abd: n('#e-abd'), abdF: n('#e-abdf'), corrida: n('#e-cor'), corridaF: n('#e-corf') };
     p.equip.elastico = $('#p-elas').checked; p.equip.superband = $('#p-band').checked;
@@ -709,7 +753,8 @@ rotas.dicas = () => {
   <div class="card"><h3>Aquecimento antes de correr</h3><ul>${P.AQUECIMENTO_CORRIDA.map((x) => `<li>${x}</li>`).join('')}</ul></div>
   <div class="card"><h3>Joelhos na corrida</h3><ul><li>Cadência de 165-175 passos por minuto (use o metrônomo).</li><li>Pé aterrissa embaixo do quadril, não à frente.</li><li>Terra batida, grama ou pista nas primeiras fases.</li><li>Descidas íngremes sobrecarregam o joelho: evite no início.</li><li>Fortalecer glúteo e quadríceps (dias de força) é a melhor proteção.</li></ul></div>
   <div class="card"><h3>Ombros na barra</h3><ul><li>Nada de barra livre antes do nível B5.</li><li>Comece cada puxada pelas escápulas (ombro longe da orelha).</li><li>Suba e desça da barra com um banco, nunca soltando o corpo.</li><li>Negativas: no máximo 2 vezes por semana, com 48-72 h de intervalo.</li><li>Rotação externa com elástico protege o manguito rotador: não pule.</li></ul></div>
-  <div class="card"><h3>Tênis Olympikus Corre 4</h3><p>Rodagem estimada: <b>${km.toFixed(0)} km</b>. Tênis de amortecimento costuma perder conforto entre 500 e 800 km; se a espuma estiver marcada ou o joelho começar a reclamar sem outra causa, avalie trocar.</p></div>
+  <div class="card"><h3>Tênis ${esc(S().profile.tenis || '')}</h3><p>Rodagem estimada: <b>${km.toFixed(0)} km</b>. Tênis de amortecimento máximo protege bem o joelho, mas a espuma cede com o uso; com o peso atual, avalie trocar por volta de 500 a 600 km, ou antes se a sola estiver marcada ou o joelho reclamar sem outra causa.</p></div>
+  <div class="card"><h3>Peso, joelhos e barra</h3><ul><li>Cada 1 kg perdido tira cerca de 4 kg de carga do joelho por passada.</li><li>Na barra, você levanta o próprio corpo: perder gordura facilita a barra tanto quanto ganhar força.</li><li>Ritmo seguro: até ~0,5 a 1% do peso por semana. Mais rápido que isso costuma levar à perda de músculo, cansaço e queda de rendimento.</li><li>Base da alimentação: proteína em todas as refeições, verduras e legumes, menos açúcar, refrigerante, frituras e álcool.</li><li>Não corte comida perto dos treinos: coma algo leve 1 a 2 h antes.</li><li>Sono de 7 a 9 h ajuda a controlar a fome.</li><li>Um nutricionista consegue montar o plano certo para você; o app só acompanha a tendência.</li></ul></div>
   <div class="card"><h3>Hidratação e alimentação</h3><ul><li>Meta diária: cerca de 35 ml por kg (${St.metaAgua() * 250} ml para você).</li><li>Em dia de corrida, mais 500 ml; no calor do Seridó, beba antes de sentir sede.</li><li>Lanche leve com carboidrato 1-2 h antes de correr.</li><li>Proteína em todas as refeições ajuda na recuperação muscular.</li></ul></div>
   <div class="card"><h3>Sono e recuperação</h3><p>7-9 h por noite. Dor, cansaço e sono ruim entram no check-in e o app reduz o treino automaticamente.</p></div>`;
 };
