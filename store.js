@@ -46,6 +46,9 @@ function merge(base, data) {
   return base;
 }
 export function save() {
+  const p = state.profile;
+  // Metas padrão adequadas ao feminino (edital: 1.600 m, 10 abdominais, 5 s de isometria)
+  if (p.sexo === 'F' && !p.metasF) { if (p.metas.corrida === 2400) p.metas.corrida = 2000; if (p.metas.abd === 25) p.metas.abd = 18; p.metasF = true; }
   try { localStorage.setItem(KEY, JSON.stringify(state)); return true; } catch { return false; }
 }
 export const S = () => state;
@@ -68,14 +71,22 @@ export function bestTest(type, sinceDays = null) {
   return arr.length ? Math.max(...arr.map((t) => t.value)) : null;
 }
 
+// Critério do nível. No feminino, o teste do edital é isometria (não barra livre): os critérios de barra viram tempo de isometria.
+function gateReal(track) {
+  const lv = STRENGTH_TRACKS[track].levels[state.levels[track]];
+  if (!lv.gate) return null;
+  const F = state.profile.sexo === 'F';
+  let teste = lv.gate.teste, min = lv.gate.min, txt = lv.gate.txt;
+  if (teste === 'abd') { min = F ? state.profile.edital.abdF : state.profile.edital.abd; txt = `Abdominal 60 s com o mínimo do edital (${min})`; }
+  if (F && teste === 'barra') { teste = 'iso'; min = lv.gate.min >= 3 ? 25 : 15; txt = `Isometria no topo de ${min} s registrada em Testes`; }
+  return { teste, min, txt };
+}
 export function gateOk(track) {
   if (track === 'run') return true;
-  const lv = STRENGTH_TRACKS[track].levels[state.levels[track]];
-  if (!lv.gate) return true;
-  let min = lv.gate.min;
-  if (lv.gate.teste === 'abd') min = state.profile.sexo === 'F' ? state.profile.edital.abdF : state.profile.edital.abd;
-  const b = bestTest(lv.gate.teste);
-  return b !== null && b >= min;
+  const g = gateReal(track);
+  if (!g) return true;
+  const b = bestTest(g.teste);
+  return b !== null && b >= g.min;
 }
 
 // Registra uma sessão concluída num trilho. dor = dor máxima relatada na região após o treino.
@@ -87,7 +98,7 @@ export function registrarProgresso(track, dor) {
   if (dor >= 3) return `Dor ${dor}/10: sessão registrada, mas não conta para subir de nível.`;
   state.prog[track] = (state.prog[track] || 0) + 1;
   if (state.prog[track] >= need && lv < levels.length - 1) {
-    if (!gateOk(track)) return `Sessões completas no nível. Falta o critério: ${STRENGTH_TRACKS[track].levels[lv].gate.txt}.`;
+    if (!gateOk(track)) return `Sessões completas no nível. Falta o critério: ${gateReal(track).txt}.`;
     state.levels[track] = lv + 1; state.prog[track] = 0;
     if (track === 'run') state.runIdx = 0;
     addXP(50);
