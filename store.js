@@ -1,5 +1,6 @@
 // Estado local (fica só no celular). Inclui progressão por níveis, XP e conquistas.
 import { RUN_LEVELS, STRENGTH_TRACKS } from './program.js';
+import { TIPOS, provas, minimo, atingiu, normalizar } from './concursos.js';
 
 const KEY = 'tafpprn.v1';
 
@@ -8,16 +9,15 @@ const DEFAULT = () => ({
   profile: {
     onboarded: false, nome: '', sexo: 'M', peso: 75, tafDate: '', startDate: hoje(),
     cadence: 170, voice: true, announce: 400, showMap: true,
-    edital: { barra: 3, iso: 5, abd: 15, abdF: 10, corrida: 2000, corridaF: 1600 },
-    metas: { barra: 6, iso: 15, abd: 25, corrida: 2400 },
+    concurso: 'pprn', indices: { M: {}, F: {} }, metas: {},
     equip: { elastico: true, barraFixa: 'praca', superband: false },
     tenisKmInicial: 0, tenis: 'Olympikus Corre Max', altura: null, pesoInicial: null, pesoMeta: null,
   },
   checkins: {},
   sessions: [],
   tests: [],
-  levels: { run: 0, barra: 0, core: 0, pernas: 0 },
-  prog: { run: 0, barra: 0, core: 0, pernas: 0 },
+  levels: { run: 0, barra: 0, core: 0, pernas: 0, flexao: 0, potencia: 0 },
+  prog: { run: 0, barra: 0, core: 0, pernas: 0, flexao: 0, potencia: 0 },
   runIdx: 0,
   forcaIdx: 0,
   water: {},
@@ -37,6 +37,7 @@ export function load() {
     const raw = localStorage.getItem(KEY);
     state = raw ? merge(DEFAULT(), JSON.parse(raw)) : DEFAULT();
   } catch { state = DEFAULT(); }
+  normalizar(state.profile);
   return state;
 }
 function merge(base, data) {
@@ -48,13 +49,11 @@ function merge(base, data) {
 }
 export function save() {
   const p = state.profile;
-  // Metas padrão adequadas ao feminino (edital: 1.600 m, 10 abdominais, 5 s de isometria)
-  if (p.sexo === 'F' && !p.metasF) { if (p.metas.corrida === 2400) p.metas.corrida = 2000; if (p.metas.abd === 25) p.metas.abd = 18; p.metasF = true; }
   try { localStorage.setItem(KEY, JSON.stringify(state)); return true; } catch { return false; }
 }
 export const S = () => state;
 export function resetAll() { state = DEFAULT(); save(); }
-export function importJSON(txt) { const d = JSON.parse(txt); if (!d || !d.profile) throw new Error('Arquivo inválido'); state = merge(DEFAULT(), d); save(); }
+export function importJSON(txt) { const d = JSON.parse(txt); if (!d || !d.profile) throw new Error('Arquivo inválido'); state = merge(DEFAULT(), d); normalizar(state.profile); save(); }
 export function exportJSON() { return JSON.stringify(state, null, 1); }
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -68,8 +67,9 @@ export function trackInfo(track) {
 
 export function bestTest(type, sinceDays = null) {
   const lim = sinceDays ? Date.now() - sinceDays * 864e5 : 0;
-  const arr = state.tests.filter((t) => t.type === type && new Date(t.date).getTime() >= lim);
-  return arr.length ? Math.max(...arr.map((t) => t.value)) : null;
+  const arr = state.tests.filter((t) => t.type === type && new Date(t.date).getTime() >= lim).map((t) => +t.value);
+  if (!arr.length) return null;
+  return TIPOS[type] && !TIPOS[type].maior ? Math.min(...arr) : Math.max(...arr);
 }
 
 // Critério do nível. No feminino, o teste do edital é isometria (não barra livre): os critérios de barra viram tempo de isometria.
@@ -78,7 +78,8 @@ function gateReal(track) {
   if (!lv.gate) return null;
   const F = state.profile.sexo === 'F';
   let teste = lv.gate.teste, min = lv.gate.min, txt = lv.gate.txt;
-  if (teste === 'abd') { min = F ? state.profile.edital.abdF : state.profile.edital.abd; txt = `Abdominal 60 s com o mínimo do edital (${min})`; }
+  if (teste === 'abd') { min = minimo(state.profile, 'abd', F ? 10 : 15); txt = `Abdominal 1 min com o mínimo do edital (${min})`; }
+  if (teste === 'flexao') { min = minimo(state.profile, 'flexao', lv.gate.min); txt = `Flexão de braço com o mínimo do edital (${min}) registrada em Testes`; }
   if (F && teste === 'barra') { teste = 'iso'; min = lv.gate.min >= 3 ? 25 : 15; txt = `Isometria no topo de ${min} s registrada em Testes`; }
   return { teste, min, txt };
 }
@@ -140,7 +141,9 @@ export const BADGES = [
   { id: 'barra_edital', icone: '🏆', nome: 'Barra do edital', desc: 'Atingiu o mínimo do edital na barra.' },
   { id: 'abd_edital', icone: '🏆', nome: 'Abdominal do edital', desc: 'Atingiu o mínimo do edital no abdominal.' },
   { id: 'corrida_edital', icone: '🏆', nome: 'Corrida do edital', desc: 'Atingiu a distância mínima do edital em 12 min.' },
-  { id: 'meta2400', icone: '🥇', nome: 'Meta 2.400 m', desc: 'Correu sua meta em 12 minutos.' },
+  { id: 'meta2400', icone: '🥇', nome: 'Meta da corrida', desc: 'Correu sua meta em 12 minutos.' },
+  { id: 'flexao_edital', icone: '🏆', nome: 'Flexão do edital', desc: 'Atingiu o mínimo do edital na flexão de braço.' },
+  { id: 'edital_completo', icone: '🎖️', nome: 'Aprovado no simulado', desc: 'Atingiu o mínimo do edital em todas as provas do seu concurso.' },
   { id: 'peso_reg', icone: '⚖️', nome: 'Peso registrado', desc: 'Registrou o peso pela primeira vez.' },
   { id: 'peso3', icone: '📉', nome: '-3 kg', desc: 'Perdeu 3 kg desde o início.' },
   { id: 'peso6', icone: '🏋️', nome: '-6 kg', desc: 'Perdeu 6 kg desde o início.' },
@@ -183,11 +186,14 @@ export function checkBadges() {
   give('trote_continuo', state.levels.run >= 10);
   give('hang30', (bestTest('hang') || 0) >= 30);
   give('primeira_barra', (bestTest('barra') || 0) >= 1);
-  give('barra_edital', P.sexo === 'M' ? (bestTest('barra') || 0) >= P.edital.barra : (bestTest('iso') || 0) >= P.edital.iso);
-  give('abd_edital', (bestTest('abd') || 0) >= (P.sexo === 'F' ? P.edital.abdF : P.edital.abd));
-  const run = bestTest('run12') || 0;
-  give('corrida_edital', run >= (P.sexo === 'F' ? P.edital.corridaF : P.edital.corrida));
-  give('meta2400', run >= P.metas.corrida);
+  const pv = provas(P), ok = (t) => { const x = pv.find((y) => y.tipo === t); return x && atingiu(t, bestTest(t), x.min); };
+  give('barra_edital', ok('barra') || ok('iso'));
+  give('abd_edital', ok('abd'));
+  give('corrida_edital', ok('run12'));
+  const r12 = pv.find((y) => y.tipo === 'run12');
+  give('meta2400', r12 && atingiu('run12', bestTest('run12'), r12.meta));
+  give('flexao_edital', ok('flexao'));
+  give('edital_completo', pv.length > 0 && pv.every((x) => atingiu(x.tipo, bestTest(x.tipo), x.min)));
   const pi = state.profile.pesoInicial, pa = state.profile.peso;
   give('peso_reg', state.pesos.length > 0);
   give('peso3', pi && pa && pi - pa >= 3); give('peso6', pi && pa && pi - pa >= 6);

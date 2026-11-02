@@ -40,6 +40,17 @@
     'Pêndulo de ombro': 'exercício pendular de codman ombro',
     'Rotação externa isométrica na parede': 'rotação externa isométrica ombro parede',
     'Respiração diafragmática': 'respiração diafragmática deitado como fazer',
+    'Flexão na parede': 'flexão de braço na parede iniciante',
+    'Flexão inclinada (mesa ou bancada)': 'flexão de braço inclinada iniciante',
+    'Flexão com joelhos apoiados': 'flexão de braço com joelhos apoiados execução correta',
+    'Flexão negativa (descida de 4 s)': 'flexão de braço negativa excêntrica',
+    'Flexão de braço completa': 'flexão de braço execução correta TAF',
+    'Prancha alta (braços estendidos)': 'prancha alta braços estendidos',
+    'Saltitos baixos (pular corda, real ou imaginária)': 'pular corda iniciante técnica',
+    'Salto horizontal submáximo': 'impulsão horizontal técnica iniciante',
+    'Impulsão horizontal (técnica de prova)': 'impulsão horizontal TAF técnica',
+    'Mudança de direção (técnica do shuttle)': 'shuttle run técnica TAF',
+    'Acelerações curtas (20 m)': 'educativo aceleração corrida 20 metros',
     'Caminhada leve (terreno plano)': 'técnica de caminhada rápida postura',
   };
   const url = (n) => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(Q[n] || n + ' exercício como fazer');

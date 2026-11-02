@@ -108,6 +108,17 @@ export const EX = {
   step_down: { nome: 'Descida controlada do degrau', tipo: 'reps', lado: true, dica: 'Em pé no degrau, desça o calcanhar da outra perna até tocar o chão em 3 s. Controle o joelho.' },
   afundo: { nome: 'Afundo estático curto', tipo: 'reps', lado: true, dica: 'Passada curta, desça só até onde não houver dor, tronco reto.' },
 
+  flex_parede: { nome: 'Flexão na parede', tipo: 'reps', dica: 'Mãos na parede na altura do peito, corpo reto como prancha. Desça o peito até perto da parede e empurre. Sem dor no ombro.' },
+  flex_inclinada: { nome: 'Flexão inclinada (mesa ou bancada)', tipo: 'reps', dica: 'Mãos numa superfície firme na altura do quadril. Quanto mais baixa a superfície, mais difícil. Cotovelos a 45° do corpo, não abertos.' },
+  flex_joelhos: { nome: 'Flexão com joelhos apoiados', tipo: 'reps', dica: 'Joelhos no chão, corpo reto do joelho à cabeça. Peito desce até quase tocar o solo.' },
+  flex_negativa: { nome: 'Flexão negativa (descida de 4 s)', tipo: 'reps', dica: 'Posição de flexão completa, desça em 4 s até o peito tocar o chão, apoie os joelhos para subir e repita.' },
+  flexao: { nome: 'Flexão de braço completa', tipo: 'reps', dica: 'Corpo reto, mãos um pouco além da largura dos ombros, peito desce até a altura exigida no edital e sobe com braços estendidos. Pare antes da falha.' },
+  prancha_alta: { nome: 'Prancha alta (braços estendidos)', tipo: 'tempo', dica: 'Posição de flexão parada, glúteo contraído. Fortalece ombro e core para a flexão.' },
+  pulo_corda: { nome: 'Saltitos baixos (pular corda, real ou imaginária)', tipo: 'tempo', dica: 'Saltos bem baixos na ponta dos pés, aterrissando macio. Prepara tendões para impacto. Pare se o joelho doer.' },
+  salto_sub: { nome: 'Salto horizontal submáximo', tipo: 'reps', dica: 'Salto à frente com os dois pés a 60-70% da força, braços ajudando, aterrissagem macia com joelhos flexionados e alinhados. Descanse 1 min.' },
+  salto_imp: { nome: 'Impulsão horizontal (técnica de prova)', tipo: 'reps', dica: 'Pés paralelos atrás da linha, balanço de braços, projeção a 45° e queda amortecida sem rolar para trás. Meça o melhor salto.' },
+  mudanca_dir: { nome: 'Mudança de direção (técnica do shuttle)', tipo: 'reps', dica: 'Trote 9 m, abaixe o quadril, apoie a mão no chão e volte. Comece devagar: é a técnica de parar e voltar que economiza tempo.' },
+  acelera: { nome: 'Acelerações curtas (20 m)', tipo: 'reps', dica: 'Acelere até 80% da velocidade em 20 m e volte caminhando. Só em piso plano e com aquecimento completo.' },
   mob_tornozelo: { nome: 'Mobilidade de tornozelo na parede', tipo: 'reps', lado: true, dica: 'Pé a um palmo da parede, leve o joelho até tocar a parede sem tirar o calcanhar do chão.' },
   gato_camelo: { nome: 'Gato-camelo', tipo: 'reps', dica: 'Quatro apoios, arredonde e estenda a coluna devagar.' },
   rot_toracica: { nome: 'Rotação torácica (livro aberto)', tipo: 'reps', lado: true, dica: 'Deitado de lado, joelhos dobrados, abra o braço de cima acompanhando com o olhar.' },
@@ -151,6 +162,26 @@ export const STRENGTH_TRACKS = {
       { nome: 'P3 · Controle', ex: [e('step_down', 3, 8), e('afundo', 3, 8), e('agach_caixa', 3, 15), e('panturrilha_uni', 3, 15), e('ostra', 2, 20)], sessoes: 999, gate: null, criterio: 'Nível final.' },
     ],
   },
+};
+
+STRENGTH_TRACKS.flexao = {
+  nome: 'Flexão de braço (peito e ombros)', regiao: 'ombro',
+  levels: [
+    { nome: 'F1 · Base', ex: [e('flex_parede', 3, 12), e('flex_inclinada', 3, 8), e('prancha_alta', 3, 20)], sessoes: 4, gate: null, criterio: '4 sessões sem dor no ombro.' },
+    { nome: 'F2 · Inclinada baixa', ex: [e('flex_inclinada', 4, 10), e('flex_joelhos', 3, 8), e('prancha_alta', 3, 30)], sessoes: 4, gate: null, criterio: '4 sessões sem dor no ombro.' },
+    { nome: 'F3 · Negativas', ex: [e('flex_joelhos', 3, 12), e('flex_negativa', 3, 5), e('prancha_alta', 3, 40)], sessoes: 4, gate: { teste: 'flexao', min: 5, txt: '5 flexões completas registradas em Testes' }, criterio: '4 sessões sem dor + 5 flexões completas.' },
+    { nome: 'F4 · Completa', ex: [e('flexao', 5, 5), e('flex_negativa', 2, 5), e('flex_joelhos', 2, 12)], sessoes: 6, gate: { teste: 'flexao', min: 20, txt: 'Flexão com o mínimo do edital registrada em Testes' }, criterio: '6 sessões + mínimo do edital.' },
+    { nome: 'F5 · Margem de segurança', ex: [e('flexao', 4, 12), e('flex_negativa', 2, 6), e('prancha_alta', 2, 45)], sessoes: 999, gate: null, criterio: 'Nível final: teste a cada 2 semanas.' },
+  ],
+};
+// Potência (impulsão, shuttle): só depois da fase de corrida contínua, por causa dos joelhos.
+STRENGTH_TRACKS.potencia = {
+  nome: 'Potência (impulsão e shuttle)', regiao: 'joelho', liberaNivelCorrida: 12,
+  levels: [
+    { nome: 'X1 · Preparação', ex: [e('pulo_corda', 4, 30), e('salto_sub', 3, 3), e('mudanca_dir', 4, 2)], sessoes: 4, gate: null, criterio: '4 sessões sem dor no joelho.' },
+    { nome: 'X2 · Técnica de prova', ex: [e('salto_imp', 4, 3), e('mudanca_dir', 5, 2), e('acelera', 4, 1)], sessoes: 6, gate: null, criterio: '6 sessões sem dor no joelho.' },
+    { nome: 'X3 · Específico', ex: [e('salto_imp', 5, 2), e('mudanca_dir', 6, 2), e('acelera', 6, 1)], sessoes: 999, gate: null, criterio: 'Nível final: meça a impulsão e o shuttle a cada 2 semanas.' },
+  ],
 };
 
 export const MOBILIDADE = [e('mob_tornozelo', 2, 10), e('gato_camelo', 1, 10), e('rot_toracica', 2, 8), e('flexor_quadril', 2, 30), e('ponte', 2, 12), e('caminhada_leve', 1, 1200)];

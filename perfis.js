@@ -1,5 +1,6 @@
 // Vários perfis no mesmo celular + ritmo de prova calculado pela meta de cada pessoa.
 import { SEG } from './program.js';
+import { meta as metaDe, normalizar } from './concursos.js';
 
 const KEY = 'tafpprn.v1', REG = 'tafpprn.perfis', PREF = 'tafpprn.perfil.';
 const ler = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
@@ -42,7 +43,7 @@ function excluir(id) {
 
 // Ritmo de prova = ritmo necessário para a meta de 12 min de cada pessoa
 function ajustarRitmo() {
-  const meta = ler(KEY)?.profile?.metas?.corrida || 2400;
+  const pf = ler(KEY)?.profile; const meta = pf ? metaDe(normalizar({ ...pf, metas: { ...(pf.metas || {}) } }), 'run12', 2400) : 2400;
   const seg = 720 / (meta / 1000), m = Math.floor(seg / 60), s = Math.round(seg % 60);
   const txt = `${m}:${String(s).padStart(2, '0')}`;
   SEG.rit.nome = `Ritmo de prova (${txt}/km)`;

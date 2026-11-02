@@ -1,6 +1,7 @@
 import * as P from './program.js';
 import * as St from './store.js';
 import * as D from './devices.js';
+import * as C from './concursos.js';
 
 const { S, save, hoje } = St;
 St.load();
@@ -13,7 +14,13 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const fmtData = (iso) => { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y.slice(2)}`; };
 const diasAte = (iso) => { if (!iso) return null; const a = new Date(hoje() + 'T00:00:00'), b = new Date(iso + 'T00:00:00'); return Math.round((b - a) / 864e5); };
-const edital = () => { const p = S().profile, F = p.sexo === 'F'; return { barra: F ? p.edital.iso : p.edital.barra, barraTipo: F ? 'iso' : 'barra', abd: F ? p.edital.abdF : p.edital.abd, corrida: F ? p.edital.corridaF : p.edital.corrida }; };
+const concurso = () => C.CONCURSOS[S().profile.concurso] || C.CONCURSOS.pprn;
+const provas = () => C.provas(S().profile);
+const temProva = (t) => C.temProva(S().profile, t);
+const minimo = (t, d) => C.minimo(S().profile, t, d);
+const metaDe = (t, d) => C.meta(S().profile, t, d);
+const potenciaLiberada = () => (temProva('impulsao') || temProva('shuttle')) && S().levels.run >= (P.STRENGTH_TRACKS.potencia.liberaNivelCorrida || 12);
+const tracksAtivos = () => ['barra', 'core', 'pernas', ...(temProva('flexao') ? ['flexao'] : []), ...(potenciaLiberada() ? ['potencia'] : [])];
 
 // ---------- UI básica ----------
 export function toast(msg, ms = 3200) {
@@ -68,6 +75,12 @@ function montarForca(ci) {
   add('core', false);
   if (j >= 5) { blocos.push({ track: null, titulo: 'Regenerativo de joelho', ex: P.REGEN_JOELHO }); notas.push('Sem exercícios de perna com carga: joelho com dor.'); }
   else add('pernas', j >= 3);
+  if (temProva('flexao')) { if (o >= 5) notas.push('Sem flexão de braço hoje: ombro com dor.'); else add('flexao', o >= 3); }
+  if (temProva('impulsao') || temProva('shuttle')) {
+    if (!potenciaLiberada()) notas.push(`Treino de impulsão e shuttle é liberado a partir do nível ${P.STRENGTH_TRACKS.potencia.liberaNivelCorrida} da corrida, para proteger os joelhos.`);
+    else if (j >= 3) notas.push('Sem saltos hoje: joelho com incômodo.');
+    else add('potencia', false);
+  }
   return { blocos, notas };
 }
 
@@ -130,7 +143,7 @@ function render() {
 rotas.boasvindas = () => {
   const p = S().profile;
   view.innerHTML = `
-  <section class="hero"><div class="logo">TAF</div><h1>Treinador TAF</h1><p>Seu plano de corrida, barra e abdominal para o TAF da Polícia Penal/RN, com progressão segura para joelhos e ombros.</p></section>
+  <section class="hero"><div class="logo">TAF</div><h1>Treinador TAF</h1><p>Seu plano de corrida, barra, abdominal e demais provas do TAF do seu concurso, com progressão segura para joelhos e ombros.</p></section>
   <div class="card warn"><h3>Antes de começar</h3>
   <p>Este app organiza o treino, mas não substitui avaliação médica. Depois de anos parado e com histórico nos joelhos e ombros, faça uma consulta e, se possível, acompanhamento de fisioterapeuta ou educador físico. O edital exige atestado médico emitido até 30 dias antes do TAF.</p>
   <label class="check"><input type="checkbox" id="ob-ok"> Entendi e vou respeitar a dor e os sinais de alerta.</label></div>
@@ -139,6 +152,7 @@ rotas.boasvindas = () => {
   <div class="grid2"><label>Sexo (define os índices do edital)<select id="ob-sexo"><option value="M">Masculino</option><option value="F">Feminino</option></select></label>
   <label>Peso (kg)<input id="ob-peso" type="text" inputmode="decimal" step="0.1" value="${p.peso}"></label></div>
   <label>Altura (m)<input id="ob-alt" type="text" inputmode="decimal" step="0.01" value="${p.altura || ''}" placeholder="1,71"></label>
+  <label>Concurso<select id="ob-conc">${Object.entries(C.CONCURSOS).map(([k, c]) => `<option value="${k}" ${p.concurso === k ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></label>
   <label>Data do TAF (deixe em branco se ainda não saiu)<input id="ob-taf" type="date" value="${p.tafDate}"></label>
   <h3>Equipamentos</h3>
   <label class="check"><input type="checkbox" id="ob-elas" checked> Tenho elástico de resistência (ou vou comprar)</label>
@@ -150,7 +164,7 @@ rotas.boasvindas = () => {
   <button class="btn big" id="ob-go">Montar meu plano</button></div>`;
   $('#ob-go').onclick = () => {
     if (!$('#ob-ok').checked) return toast('Marque que entendeu o aviso de segurança.');
-    Object.assign(p, { nome: $('#ob-nome').value.trim(), sexo: $('#ob-sexo').value, altura: +String($('#ob-alt').value).replace(',', '.') || p.altura, tafDate: $('#ob-taf').value, startDate: hoje(), onboarded: true });
+    Object.assign(p, { nome: $('#ob-nome').value.trim(), sexo: $('#ob-sexo').value, altura: +String($('#ob-alt').value).replace(',', '.') || p.altura, tafDate: $('#ob-taf').value, concurso: $('#ob-conc').value, startDate: hoje(), onboarded: true });
     St.registrarPeso(+String($('#ob-peso').value).replace(',', '.') || 75);
     p.equip = { elastico: $('#ob-elas').checked, superband: $('#ob-band').checked, barraFixa: $('#ob-barra').value };
     S().levels.run = $('#ob-cam').checked && $('#ob-tro').checked ? 1 : 0;
@@ -245,7 +259,7 @@ function cardPlano(pl) {
   } else if (pl.tipo === 'mobilidade' || pl.tipo === 'regen') {
     corpo = `<p class="muted">${pl.ex.map((x) => P.EX[x.id].nome).join(' · ')}</p><button class="btn big" id="pl-go">Iniciar</button>`;
   } else if (pl.tipo === 'taf') {
-    corpo = `<p>É hoje! Revise:</p><ul>${P.REGRAS_EDITAL.map((x) => `<li>${x}</li>`).join('')}<li>Aqueça 10-15 min: caminhada, trote leve, mobilidade de ombro e 2 suspensões curtas na barra.</li><li>Na corrida, saia no seu ritmo de treino (5:00/km). Não dispare na largada.</li></ul>`;
+    corpo = `<p>É hoje! Revise:</p><ul>${concurso().regras.map((x) => `<li>${x}</li>`).join('')}<li>Aqueça 10-15 min: caminhada, trote leve, mobilidade de ombro e 2 suspensões curtas na barra.</li><li>Na corrida, saia no seu ritmo de treino (5:00/km). Não dispare na largada.</li></ul>`;
   } else corpo = '';
   return `<div class="card plano"><div class="row between"><h3>Treino de hoje</h3><button class="link" id="pl-troca">trocar</button></div><h2>${pl.titulo}</h2>
   ${(pl.notas || []).map((n) => `<p class="nota">${n}</p>`).join('')}${corpo}</div>`;
@@ -293,7 +307,7 @@ rotas.correr = () => {
   const segs = plano ? plano.segs : null;
   const simul = modo === 'simulado';
   const planoSim = simul && planoAtivo?.simulado ? planoAtivo : null;
-  const META = p.metas.corrida, MIN = edital().corrida;
+  const MIN = minimo('run12', p.sexo === 'F' ? 1600 : 2000), META = metaDe('run12', 2400);
   let map = null, linha = null, marcador = null, metroOn = false;
   let segAtual = -1, proxAnuncio = p.announce, avisos = {};
   const rast = new D.Rastreador(atualizar);
@@ -455,7 +469,7 @@ rotas.treino = () => {
         const msgs = [];
         if (kind === 'forca' && ok >= total * 0.8) {
           for (const b of blocos) if (b.track && !b.titulo.includes('reduzido')) {
-            const dor = b.track === 'barra' ? o : b.track === 'pernas' ? j : 0;
+            const dor = b.track === 'barra' || b.track === 'flexao' ? o : b.track === 'pernas' || b.track === 'potencia' ? j : 0;
             msgs.push(`${P.STRENGTH_TRACKS[b.track].nome.split(' (')[0]}: ${St.registrarProgresso(b.track, dor)}`);
           }
           St.addXP(30);
@@ -522,7 +536,7 @@ function cronoInt() {
   limpeza = () => { clearInterval(iv); window.__querTela = false; D.liberarTela(); };
 }
 function cronoAbd() {
-  const min = edital().abd, meta = S().profile.metas.abd;
+  const min = minimo('abd', S().profile.sexo === 'F' ? 10 : 15), meta = metaDe('abd', 25);
   $('#cr').innerHTML = `<div class="card"><p>Simulado do abdominal do edital: 60 s, pés presos, braços cruzados no peito, escápulas tocam o chão. Toque na área grande a cada repetição válida (ou peça para alguém contar). Mínimo do edital: <b>${min}</b> · sua meta: <b>${meta}</b>.</p></div>
   <div class="crono-disp" id="a-disp"><small id="a-f">Pronto</small><b id="a-t">01:00</b></div>
   <button class="tap" id="a-tap" disabled><span id="a-n">0</span><small>toque = +1</small></button>
@@ -548,7 +562,7 @@ function cronoAbd() {
 }
 function cronoHang() {
   const F = S().profile.sexo === 'F';
-  $('#cr').innerHTML = `<div class="card"><p><b>Suspensão (dead hang):</b> mede a adaptação do ombro à barra. <b>Isometria no topo:</b> queixo acima da barra, ${F ? 'é o teste feminino do edital (mínimo ' + S().profile.edital.iso + ' s)' : 'prepara para as primeiras barras'}. Inicie quando os pés saírem do apoio.</p>
+  $('#cr').innerHTML = `<div class="card"><p><b>Suspensão (dead hang):</b> mede a adaptação do ombro à barra. <b>Isometria no topo:</b> queixo acima da barra, ${F ? (temProva('iso') ? 'é o teste feminino do edital (mínimo ' + minimo('iso', 5) + ' s)' : 'fortalece a pegada e os ombros') : 'prepara para as primeiras barras'}. Inicie quando os pés saírem do apoio.</p>
   <div class="seg-tabs"><a id="h-hang" class="on">Suspensão</a><a id="h-iso">Isometria no topo</a></div></div>
   <div class="crono-disp"><small id="h-f">Suspensão</small><b id="h-t">00.0</b></div>
   <button class="btn big" id="h-go">Iniciar</button>
@@ -573,6 +587,10 @@ function cronoLivre() {
   $('#l-go').onclick = () => { if (iv) { acc = now(); clearInterval(iv); iv = null; $('#l-go').textContent = 'Continuar'; } else { t0 = performance.now(); iv = setInterval(() => ($('#l-t').textContent = fmt(now())), 100); $('#l-go').textContent = 'Pausar'; } };
   $('#l-volta').onclick = () => { const n = now(); $('#l-voltas').insertAdjacentHTML('afterbegin', `<li>${fmt(n - ult)} <small>(${fmt(n)})</small></li>`); ult = n; D.beep(1000, 0.05); };
   $('#l-zero').onclick = () => { clearInterval(iv); iv = null; acc = 0; ult = 0; $('#l-t').textContent = '00:00.0'; $('#l-voltas').innerHTML = ''; $('#l-go').textContent = 'Iniciar'; };
+  const tempos = Object.entries(C.TIPOS).filter(([, t]) => !t.maior);
+  $('#cr').insertAdjacentHTML('beforeend', `<div class="card"><h3>Salvar tempo como teste</h3><p class="muted small">Para provas por tempo (shuttle run, natação). Pare o cronômetro e salve.</p>
+    <div class="row gap"><select id="l-tipo" style="flex:1">${tempos.map(([k, t]) => `<option value="${k}" ${temProva(k) ? 'selected' : ''}>${t.nome}</option>`).join('')}</select><button class="btn" id="l-salvar">Salvar</button></div></div>`);
+  $('#l-salvar').onclick = () => { const v = Math.round(now() * 100) / 100; if (!v) return toast('Use o cronômetro primeiro.'); const k = $('#l-tipo').value; salvarTeste(k, v, `${C.TIPOS[k].nome}: ${C.fmtValor(k, v)}.`); };
   limpeza = () => clearInterval(iv);
 }
 function salvarTeste(type, value, desc) {
@@ -585,27 +603,32 @@ function salvarTeste(type, value, desc) {
 }
 
 // ===== Evolução =====
-const TESTES = { run12: ['Corrida 12 min', 'm'], barra: ['Barra fixa', 'reps'], iso: ['Isometria na barra', 's'], abd: ['Abdominal 60 s', 'reps'], hang: ['Suspensão (dead hang)', 's'] };
+const TESTES = Object.fromEntries(Object.entries(C.TIPOS).map(([k, t]) => [k, [t.nome, t.un]]));
 let charts = [];
 rotas.evolucao = () => {
-  const s = S(), p = s.profile, E = edital(), F = p.sexo === 'F';
-  const b = (t) => St.bestTest(t);
+  const s = S(), p = s.profile, F = p.sexo === 'F';
   const proj = projecao12();
-  const linha = (nome, val, min, meta, un) => {
-    const pct = val === null ? 0 : Math.min(100, (val / meta) * 100), pm = Math.min(100, (min / meta) * 100);
-    return `<div class="kpi"><div class="row between"><b>${nome}</b><span>${val === null ? '—' : val + ' ' + un}</span></div>
-    <div class="prog"><i style="width:${pct}%" class="${val >= meta ? 'good' : val >= min ? 'mid' : ''}"></i><em style="left:${pm}%" title="edital"></em></div>
-    <small class="muted">edital ${min} ${un} · meta ${meta} ${un}</small></div>`;
+  const linha = (pv) => {
+    const t = C.TIPOS[pv.tipo], val = St.bestTest(pv.tipo), { min, meta } = pv;
+    const prog = (v) => (t.maior ? v / meta : meta / v);
+    const pct = val === null ? 0 : Math.min(100, prog(val) * 100), pm = Math.min(100, prog(min) * 100);
+    const cls = C.atingiu(pv.tipo, val, meta) ? 'good' : C.atingiu(pv.tipo, val, min) ? 'mid' : '';
+    return `<div class="kpi"><div class="row between"><b>${t.nome}</b><span>${C.fmtValor(pv.tipo, val)}</span></div>
+    <div class="prog"><i style="width:${pct}%" class="${cls}"></i><em style="left:${pm}%" title="edital"></em></div>
+    <small class="muted">edital ${t.maior ? '' : 'até '}${C.fmtValor(pv.tipo, min)} · meta ${C.fmtValor(pv.tipo, meta)}</small></div>`;
   };
+  const extras = provas().filter((x) => !['run12', 'barra', 'iso', 'abd'].includes(x.tipo));
   view.innerHTML = `<header class="top"><h1>Evolução</h1><button class="btn small" id="ev-add">+ Registrar teste</button></header>
-  <div class="card">${linha('Corrida 12 min', b('run12'), E.corrida, p.metas.corrida, 'm')}${F ? linha('Isometria na barra', b('iso'), E.barra, p.metas.iso, 's') : linha('Barra fixa', b('barra'), E.barra, p.metas.barra, 'reps')}${linha('Abdominal 60 s', b('abd'), E.abd, p.metas.abd, 'reps')}
-  ${proj ? `<p class="nota">Estimativa para 12 min com base no seu melhor ritmo recente em treinos contínuos: <b>${proj} m</b>. É só uma referência; o simulado é que vale.</p>` : ''}</div>
+  <div class="card"><p class="muted small">${esc(concurso().nome)}</p>${provas().map(linha).join('')}
+  ${concurso().obs ? `<p class="nota">${concurso().obs}</p>` : ''}
+  ${proj && temProva('run12') ? `<p class="nota">Estimativa para 12 min com base no seu melhor ritmo recente em treinos contínuos: <b>${proj} m</b>. É só uma referência; o simulado é que vale.</p>` : ''}</div>
   <div class="grid2"><div class="card mini"><small>Km acumulados</small><b>${St.kmTotal().toFixed(1)}</b></div><div class="card mini"><small>Sessões</small><b>${s.sessions.length}</b></div>
   <div class="card mini"><small>Tênis (${esc(p.tenis || 'tênis')})</small><b>${(St.kmTotal() + (+p.tenisKmInicial || 0)).toFixed(0)} km</b></div><div class="card mini"><small>Nível corrida</small><b>${s.levels.run + 1}/${P.RUN_LEVELS.length}</b></div></div>
   <div class="card"><h3>Peso (kg)</h3>${pesoResumo()}<canvas id="c-peso"></canvas></div>
   <div class="card"><h3>Corrida 12 min (m)</h3><canvas id="c-run"></canvas></div>
   <div class="card"><h3>${F ? 'Isometria (s)' : 'Barra (reps)'} e suspensão (s)</h3><canvas id="c-barra"></canvas></div>
-  <div class="card"><h3>Abdominal 60 s</h3><canvas id="c-abd"></canvas></div>
+  ${temProva('abd') ? '<div class="card"><h3>Abdominal em 1 min</h3><canvas id="c-abd"></canvas></div>' : ''}
+  ${extras.map((x) => `<div class="card"><h3>${C.TIPOS[x.tipo].nome} (${C.TIPOS[x.tipo].un})</h3><canvas id="c-${x.tipo}"></canvas></div>`).join('')}
   <div class="card"><h3>Km por semana</h3><canvas id="c-km"></canvas></div>
   <div class="card"><h3>Dor nos últimos 30 dias</h3><canvas id="c-dor"></canvas></div>
   <div class="card"><h3>Histórico</h3>${historico()}</div>`;
@@ -631,15 +654,15 @@ function historico() {
   const s = S();
   const itens = [...s.sessions.map((x) => ({ ...x, k: 'sessions' })), ...s.tests.map((x) => ({ ...x, k: 'tests', ts: x.ts || new Date(x.date + 'T12:00:00').getTime() }))].sort((a, b) => b.ts - a.ts).slice(0, 40);
   if (!itens.length) return '<p class="muted">Nenhum registro ainda.</p>';
-  return `<ul class="hist">${itens.map((x) => `<li><span>${fmtData(x.date)}</span><div>${x.k === 'tests' ? `🎯 ${TESTES[x.type][0]}: <b>${x.value} ${TESTES[x.type][1]}</b>` : x.kind === 'run' ? `🏃 ${esc(x.titulo)} · ${(x.dist / 1000).toFixed(2)} km · ${D.fmtTempo(x.dur)} · ${D.fmtPace(x.pace)}/km` : `💪 ${esc(x.titulo)}${x.total ? ` · ${x.series}/${x.total} séries` : ''}`}${x.dorJ !== undefined ? ` <small>· dor J${x.dorJ} O${x.dorO}</small>` : ''}</div><button class="link" data-del="${x.k}:${x.id}">✕</button></li>`).join('')}</ul>`;
+  return `<ul class="hist">${itens.map((x) => `<li><span>${fmtData(x.date)}</span><div>${x.k === 'tests' ? `🎯 ${TESTES[x.type] ? TESTES[x.type][0] : x.type}: <b>${C.fmtValor(x.type, x.value)}</b>` : x.kind === 'run' ? `🏃 ${esc(x.titulo)} · ${(x.dist / 1000).toFixed(2)} km · ${D.fmtTempo(x.dur)} · ${D.fmtPace(x.pace)}/km` : `💪 ${esc(x.titulo)}${x.total ? ` · ${x.series}/${x.total} séries` : ''}`}${x.dorJ !== undefined ? ` <small>· dor J${x.dorJ} O${x.dorO}</small>` : ''}</div><button class="link" data-del="${x.k}:${x.id}">✕</button></li>`).join('')}</ul>`;
 }
 function registrarTeste() {
-  modal(`<h3>Registrar teste</h3><label>Teste<select id="rt-t">${Object.entries(TESTES).map(([k, v]) => `<option value="${k}">${v[0]} (${v[1]})</option>`).join('')}</select></label>
-  <label>Resultado<input id="rt-v" type="number" inputmode="numeric" min="0"></label><label>Data<input id="rt-d" type="date" value="${hoje()}"></label>
+  modal(`<h3>Registrar teste</h3><label>Teste<select id="rt-t">${[...provas().map((x) => x.tipo), ...Object.keys(C.TIPOS).filter((k) => !provas().some((x) => x.tipo === k))].map((k) => `<option value="${k}">${C.TIPOS[k].nome} (${C.TIPOS[k].un})</option>`).join('')}</select></label>
+  <label>Resultado<input id="rt-v" type="text" inputmode="decimal" placeholder="Ex.: 12 · 2,05 · 13,8"></label><label>Data<input id="rt-d" type="date" value="${hoje()}"></label>
   <p class="muted small">Barra máxima: só a partir do nível B5. Corrida de 12 min: só com check-in verde.</p>
   <div class="row gap"><button class="btn ghost" data-close>Cancelar</button><button class="btn" id="rt-ok">Salvar</button></div>`, (el, close) => {
     $('#rt-ok', el).onclick = () => {
-      const v = +$('#rt-v', el).value; if (!$('#rt-v', el).value) return toast('Informe o resultado.');
+      const v = +String($('#rt-v', el).value).replace(',', '.'); if (!$('#rt-v', el).value || isNaN(v)) return toast('Informe o resultado.');
       S().tests.push({ id: St.uid(), date: $('#rt-d', el).value || hoje(), type: $('#rt-t', el).value, value: v }); St.addXP(20); save();
       const nov = St.checkBadges(); save(); close(); render(); celebrar(nov);
     };
@@ -648,24 +671,27 @@ function registrarTeste() {
 function desenharGraficos(F) {
   charts.forEach((c) => c.destroy()); charts = [];
   if (!window.Chart) return;
-  const s = S(), p = s.profile, E = edital();
+  const s = S(), p = s.profile;
   const css = getComputedStyle(document.documentElement);
   const cTxt = css.getPropertyValue('--muted').trim(), cGrid = css.getPropertyValue('--line').trim();
   Chart.defaults.color = cTxt; Chart.defaults.borderColor = cGrid; Chart.defaults.font.family = 'system-ui, sans-serif';
   const serie = (t) => s.tests.filter((x) => x.type === t).sort((a, b) => a.date.localeCompare(b.date));
   const ref0 = (v) => ({ label: 'Meta', data: [], borderColor: '#22c55e', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, refValue: v });
   const ref = (v, n, cor) => ({ label: n, data: [], borderColor: cor, borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, refValue: v });
-  const lineChart = (id, sets, refs) => {
+  const lineChart = (id, sets, refs, menor = false) => {
+    if (!$('#' + id)) return;
     const labels = [...new Set(sets.flatMap((d) => d.pts.map((x) => x.date)))].sort();
     if (!labels.length) { $('#' + id).replaceWith(Object.assign(document.createElement('p'), { className: 'muted', textContent: 'Sem registros ainda.' })); return; }
-    const ds = sets.map((d) => ({ label: d.label, data: labels.map((l) => { const v = d.pts.filter((x) => x.date === l); return v.length ? Math.max(...v.map((x) => x.value)) : null; }), borderColor: d.cor, backgroundColor: d.cor, spanGaps: true, tension: 0.25, pointRadius: 4, yAxisID: d.y || 'y' }));
+    const ds = sets.map((d) => ({ label: d.label, data: labels.map((l) => { const v = d.pts.filter((x) => x.date === l); return v.length ? (menor ? Math.min : Math.max)(...v.map((x) => +x.value)) : null; }), borderColor: d.cor, backgroundColor: d.cor, spanGaps: true, tension: 0.25, pointRadius: 4, yAxisID: d.y || 'y' }));
     refs.forEach((r) => ds.push({ ...r, data: labels.map(() => r.refValue) }));
     charts.push(new Chart($('#' + id), { type: 'line', data: { labels: labels.map(fmtData), datasets: ds }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12 } } }, scales: { y: { beginAtZero: false } } } }));
   };
   if (s.pesos.length) { const ref = s.profile.pesoMeta ? [ref0(s.profile.pesoMeta)] : []; lineChart('c-peso', [{ label: 'Peso (kg)', pts: s.pesos.map((x) => ({ date: x.date, value: x.kg })), cor: '#0ea5e9' }], ref); } else { const c = $('#c-peso'); c && c.remove(); }
-  lineChart('c-run', [{ label: 'Distância', pts: serie('run12'), cor: '#f97316' }], [ref(E.corrida, 'Edital', '#ef4444'), ref(p.metas.corrida, 'Meta', '#22c55e')]);
-  lineChart('c-barra', [{ label: F ? 'Isometria (s)' : 'Barras', pts: serie(F ? 'iso' : 'barra'), cor: '#8b5cf6' }, { label: 'Suspensão (s)', pts: serie('hang'), cor: '#0ea5e9' }], [ref(E.barra, 'Edital', '#ef4444')]);
-  lineChart('c-abd', [{ label: 'Abdominais', pts: serie('abd'), cor: '#14b8a6' }], [ref(E.abd, 'Edital', '#ef4444'), ref(p.metas.abd, 'Meta', '#22c55e')]);
+  const refs = (t) => { const pv = provas().find((x) => x.tipo === t); return pv ? [ref(pv.min, 'Edital', '#ef4444'), ref(pv.meta, 'Meta', '#22c55e')] : []; };
+  lineChart('c-run', [{ label: 'Distância', pts: serie('run12'), cor: '#f97316' }], refs('run12'));
+  lineChart('c-barra', [{ label: F ? 'Isometria (s)' : 'Barras', pts: serie(F ? 'iso' : 'barra'), cor: '#8b5cf6' }, { label: 'Suspensão (s)', pts: serie('hang'), cor: '#0ea5e9' }], refs(F ? 'iso' : 'barra').slice(0, 1));
+  lineChart('c-abd', [{ label: 'Abdominais', pts: serie('abd'), cor: '#14b8a6' }], refs('abd'));
+  provas().filter((x) => !['run12', 'barra', 'iso', 'abd'].includes(x.tipo)).forEach((x) => lineChart('c-' + x.tipo, [{ label: C.TIPOS[x.tipo].nome, pts: serie(x.tipo), cor: '#ec4899' }], refs(x.tipo), !C.TIPOS[x.tipo].maior));
   // km por semana (8 semanas)
   const semanas = []; const seg = new Date(); seg.setHours(0, 0, 0, 0); seg.setDate(seg.getDate() - ((seg.getDay() + 6) % 7));
   for (let i = 7; i >= 0; i--) { const ini = new Date(seg.getTime() - i * 7 * 864e5), fim = ini.getTime() + 7 * 864e5; semanas.push({ l: fmtData(hoje(ini)).slice(0, 5), km: s.sessions.filter((x) => x.kind === 'run' && x.ts >= ini.getTime() && x.ts < fim).reduce((a, x) => a + x.dist, 0) / 1000 }); }
@@ -680,11 +706,11 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); prom
 rotas.mais = () => {
   view.innerHTML = `<header class="top"><h1>Mais</h1></header>
   <div class="menu">
-  <a href="#perfil">👤 Perfil, metas e índices do edital</a>
+  <a href="#perfil">👤 Perfil, concurso, metas e índices</a>
   <a href="#niveis">📈 Níveis do plano</a>
   <a href="#conquistas">🏅 Conquistas</a>
   <a href="#dicas">💡 Dicas, aquecimento e sinais de alerta</a>
-  <a href="#edital">📋 Regras do TAF (edital PPRN 2026)</a>
+  <a href="#edital">📋 Regras do TAF (${esc(concurso().curto)})</a>
   <a href="#lembretes">⏰ Lembretes</a>
   <a href="#backup">💾 Backup dos dados</a>
   ${promptInstalar ? '<a id="m-inst">📲 Instalar o app</a>' : ''}
@@ -700,13 +726,11 @@ rotas.perfil = () => {
   <div class="grid2"><label>Peso atual (kg)<input id="p-peso" type="text" inputmode="decimal" step="0.1" value="${p.peso}"></label><label>Meta de peso (kg)<input id="p-pmeta" type="text" inputmode="decimal" step="0.5" value="${p.pesoMeta || ''}" placeholder="opcional"></label></div>
   <p class="muted small">Sugestão de meta: perder 5 a 10% do peso nos primeiros 3 a 6 meses${p.peso ? ` (${(p.peso * 0.9).toFixed(0)} a ${(p.peso * 0.95).toFixed(0)} kg)` : ''}. Para um plano alimentar, procure um nutricionista.</p>
   <label>Data do TAF<input id="p-taf" type="date" value="${p.tafDate}"></label></div>
-  <div class="card"><h3>Minhas metas (com folga sobre o edital)</h3><div class="grid2">
-  <label>Corrida 12 min (m)<input id="m-cor" type="number" value="${p.metas.corrida}"></label><label>Barra (reps)<input id="m-bar" type="number" value="${p.metas.barra}"></label>
-  <label>Abdominal 60 s<input id="m-abd" type="number" value="${p.metas.abd}"></label><label>Isometria (s)<input id="m-iso" type="number" value="${p.metas.iso}"></label></div></div>
-  <div class="card"><h3>Índices mínimos do edital</h3><p class="muted small">Preenchidos com o Edital PPRN 2026 (Policial Penal). Ajuste se sair retificação.</p><div class="grid2">
-  <label>Barra masc. (reps)<input id="e-bar" type="number" value="${p.edital.barra}"></label><label>Isometria fem. (s)<input id="e-iso" type="number" value="${p.edital.iso}"></label>
-  <label>Abdominal masc.<input id="e-abd" type="number" value="${p.edital.abd}"></label><label>Abdominal fem.<input id="e-abdf" type="number" value="${p.edital.abdF}"></label>
-  <label>Corrida masc. (m)<input id="e-cor" type="number" value="${p.edital.corrida}"></label><label>Corrida fem. (m)<input id="e-corf" type="number" value="${p.edital.corridaF}"></label></div></div>
+  <div class="card"><h3>Concurso</h3><label>Edital<select id="p-conc">${Object.entries(C.CONCURSOS).map(([k, c]) => `<option value="${k}" ${p.concurso === k ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></label>
+  <p class="muted small">Ao trocar, salve e volte aqui para ajustar índices e metas do novo concurso.</p></div>
+  <div class="card"><h3>Provas, índices mínimos e metas</h3><p class="muted small">Fonte: ${esc(concurso().fonte)}. Confira no edital oficial e ajuste se houver retificação.${p.concurso === 'outro' ? ' Marque as provas do seu edital.' : ''}</p>
+  ${Object.entries(C.TIPOS).filter(([k, t]) => !t.treino).map(([k, t]) => { const pv = provas().find((x) => x.tipo === k); if (!pv && p.concurso !== 'outro') return ''; return `<div class="grid3" style="align-items:end">${p.concurso === 'outro' ? `<label class="check" style="grid-column:1/-1"><input type="checkbox" data-pv="${k}" ${pv ? 'checked' : ''}> ${t.nome}</label>` : `<b style="grid-column:1/-1">${t.nome}</b>`}
+    <label>Mínimo (${t.un})<input data-min="${k}" type="text" inputmode="decimal" value="${pv ? String(pv.min).replace('.', ',') : ''}"></label><label>Meta (${t.un})<input data-meta="${k}" type="text" inputmode="decimal" value="${pv ? String(pv.meta).replace('.', ',') : ''}"></label><small class="muted">${t.maior ? 'mais é melhor' : 'tempo: menos é melhor'}</small></div>`; }).join('')}</div>
   <div class="card"><h3>Corrida</h3><div class="grid2"><label>Cadência alvo (ppm)<input id="p-cad" type="number" value="${p.cadence}"></label>
   <label>Aviso de voz a cada<select id="p-ann"><option value="400" ${p.announce == 400 ? 'selected' : ''}>400 m (volta de pista)</option><option value="1000" ${p.announce == 1000 ? 'selected' : ''}>1 km</option><option value="200" ${p.announce == 200 ? 'selected' : ''}>200 m</option></select></label></div>
   <label class="check"><input type="checkbox" id="p-voz" ${p.voice ? 'checked' : ''}> Instruções por voz</label>
@@ -716,13 +740,21 @@ rotas.perfil = () => {
   <label class="check"><input type="checkbox" id="p-band" ${p.equip.superband ? 'checked' : ''}> Tenho superband</label></div>
   <button class="btn big" id="p-ok">Salvar</button>`;
   $('#p-ok').onclick = () => {
+    const sexoAntes = p.sexo;
     const n = (id) => +$(id).value;
     const novoPeso = +String($('#p-peso').value).replace(',', '.');
     if (novoPeso && novoPeso !== p.peso) St.registrarPeso(novoPeso);
     Object.assign(p, { altura: +String($('#p-alt').value).replace(',', '.') || p.altura, pesoMeta: +String($('#p-pmeta').value).replace(',', '.') || null, tenis: $('#p-tenis').value.trim() || p.tenis });
     Object.assign(p, { nome: $('#p-nome').value.trim(), sexo: $('#p-sexo').value, tafDate: $('#p-taf').value, cadence: n('#p-cad') || 170, announce: n('#p-ann'), voice: $('#p-voz').checked, showMap: $('#p-map').checked, tenisKmInicial: n('#p-ten') || 0 });
-    p.metas = { corrida: n('#m-cor'), barra: n('#m-bar'), abd: n('#m-abd'), iso: n('#m-iso') };
-    p.edital = { barra: n('#e-bar'), iso: n('#e-iso'), abd: n('#e-abd'), abdF: n('#e-abdf'), corrida: n('#e-cor'), corridaF: n('#e-corf') };
+    const num = (v) => { const x = +String(v).replace(',', '.'); return v !== '' && !isNaN(x) ? x : null; };
+    const sx = p.sexo === 'F' ? 'F' : 'M', novoConc = $('#p-conc').value, base = C.CONCURSOS[p.concurso] || C.CONCURSOS.pprn;
+    if (novoConc !== p.concurso || sexoAntes !== p.sexo) { p.concurso = novoConc; p.indices = { M: {}, F: {} }; p.metas = {}; toast('Concurso/sexo alterado: índices e metas foram atualizados para o novo edital.', 4500); }
+    else {
+      const ind = {}; p.indices = p.indices || { M: {}, F: {} };
+      $$('[data-min]').forEach((i) => { const k = i.dataset.min, chk = $(`[data-pv="${k}"]`); if (chk && !chk.checked) return; const v = num(i.value); if (v === null) return; if (p.concurso === 'outro' || v !== base[sx][k]) ind[k] = v; });
+      p.indices[sx] = ind;
+      $$('[data-meta]').forEach((i) => { const v = num(i.value); if (v !== null) p.metas[i.dataset.meta] = v; });
+    }
     p.equip.elastico = $('#p-elas').checked; p.equip.superband = $('#p-band').checked;
     D.setVoz(p.voice); save(); toast('Perfil salvo'); ir('#mais');
   };
@@ -737,7 +769,7 @@ rotas.niveis = () => {
   view.innerHTML = `<header class="top"><a href="#mais" class="back">‹</a><h1>Níveis</h1></header>
   <p class="nota">O app sobe de nível sozinho quando você completa as sessões sem dor. Use os botões só se precisar: voltar é sempre seguro; avançar à força aumenta o risco de lesão.</p>
   ${bloco('run', 'Corrida', P.RUN_LEVELS, `Nível ${s.levels.run + 1}: ${P.RUN_LEVELS[s.levels.run].fase}`)}
-  ${['barra', 'core', 'pernas'].map((t) => bloco(t, T[t].nome, T[t].levels, T[t].levels[s.levels[t]].nome + ': ' + T[t].levels[s.levels[t]].ex.map((x) => P.EX[x.id].nome).join(', '))).join('')}`;
+  ${tracksAtivos().map((t) => bloco(t, T[t].nome, T[t].levels, T[t].levels[s.levels[t]].nome + ': ' + T[t].levels[s.levels[t]].ex.map((x) => P.EX[x.id].nome).join(', '))).join('')}`;
   $$('[data-lv]').forEach((b) => (b.onclick = () => { const [t, d] = b.dataset.lv.split(':'); const go = () => { St.mudarNivel(t, +d); render(); }; +d > 0 ? confirmar('Avançar sem cumprir o critério aumenta o risco de lesão. Continuar?', 'Avançar', go) : go(); }));
 };
 rotas.conquistas = () => {
@@ -759,12 +791,16 @@ rotas.dicas = () => {
   <div class="card"><h3>Sono e recuperação</h3><p>7-9 h por noite. Dor, cansaço e sono ruim entram no check-in e o app reduz o treino automaticamente.</p></div>`;
 };
 rotas.edital = () => {
-  const p = S().profile;
+  const p = S().profile, c = concurso();
+  const linhas = Object.keys(C.TIPOS).filter((k) => k in c.M || k in c.F || (p.concurso === 'outro' && provas().some((x) => x.tipo === k)));
+  const mostra = (sx, k) => { const pv = C.provas({ ...p, sexo: sx }).find((x) => x.tipo === k); return pv ? (C.TIPOS[k].maior ? '' : 'até ') + C.fmtValor(k, pv.min) : '—'; };
   view.innerHTML = `<header class="top"><a href="#mais" class="back">‹</a><h1>Regras do TAF</h1></header>
-  <div class="card"><h3>Índices mínimos (Edital PPRN 2026, Policial Penal)</h3><table class="tab"><tr><th>Teste</th><th>Masc.</th><th>Fem.</th></tr>
-  <tr><td>Barra fixa / isometria</td><td>${p.edital.barra} reps</td><td>${p.edital.iso} s</td></tr><tr><td>Abdominal em 60 s</td><td>${p.edital.abd}</td><td>${p.edital.abdF}</td></tr><tr><td>Corrida 12 min</td><td>${p.edital.corrida} m</td><td>${p.edital.corridaF} m</td></tr></table>
-  <p class="muted small">Etapa eliminatória: reprovar em um teste elimina. Sua meta de ${p.metas.corrida} m dá margem de segurança. Confira sempre o edital de convocação do TAF.</p></div>
-  <div class="card"><h3>Execução e regras</h3><ul>${P.REGRAS_EDITAL.map((x) => `<li>${x}</li>`).join('')}</ul></div>`;
+  <div class="card"><h3>${esc(c.nome)}</h3>${c.banca ? `<p class="muted small">Banca: ${esc(c.banca)}</p>` : ''}<table class="tab"><tr><th>Prova</th><th>Masc.</th><th>Fem.</th></tr>
+  ${linhas.map((k) => `<tr><td>${C.TIPOS[k].nome}</td><td>${mostra('M', k)}</td><td>${mostra('F', k)}</td></tr>`).join('')}</table>
+  ${c.obs ? `<p class="nota">${c.obs}</p>` : ''}
+  <p class="muted small">Fonte: ${esc(c.fonte)}. Índices podem mudar a cada edital: confira sempre o edital e a convocação do TAF do seu concurso.</p></div>
+  <div class="card"><h3>Execução e regras</h3><ul>${c.regras.map((x) => `<li>${x}</li>`).join('')}</ul></div>
+  <p class="center"><a href="#perfil">Trocar de concurso</a></p>`;
 };
 rotas.lembretes = () => {
   const cal = (titulo, hora, det) => { const d = new Date(); d.setDate(d.getDate() + 1); const ymd = hoje(d).replace(/-/g, ''); const [h, m] = hora.split(':'); const ini = `${ymd}T${h}${m}00`; const fim = `${ymd}T${String(+h + (titulo.includes('água') ? 0 : 1)).padStart(2, '0')}${titulo.includes('água') ? String(+m + 10).padStart(2, '0') : m}00`; return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&details=${encodeURIComponent(det + '\n' + location.href.split('#')[0])}&dates=${ini}/${fim}&ctz=America/Fortaleza&recur=${encodeURIComponent('RRULE:FREQ=DAILY')}`; };
