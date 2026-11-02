@@ -52,7 +52,7 @@
   function carregarQR(cb) {
     if (window.qrcode) return cb();
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; s.integrity = 'sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k'; s.crossOrigin = 'anonymous';
     s.onload = cb; s.onerror = cb; document.head.appendChild(s);
   }
   function copiar(btn) {
