@@ -4,7 +4,7 @@
   const FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSeOc4xsEHWO7PdqpX3gJ6t3dA-d0UYH9-VGQT1rDUUDPhZIcw/formResponse';
   const E = { tipo: 'entry.447516661', cidade: 'entry.564372988', uf: 'entry.1793891250', concurso: 'entry.862926955', versao: 'entry.1573682729', modo: 'entry.1113202775', mensagem: 'entry.1494306158', contato: 'entry.815182519', nome: 'entry.1468400997', interesse: 'entry.1610901043', aceite: 'entry.587729189' };
   const LINK = 'https://nelthonn-lgtm.github.io/treinador-taf/';
-  const ACEITE = 'Autorizo o Prof. Josinelton a me enviar mensagens com dicas, novidades do app e informações da mentoria. Posso pedir para sair a qualquer momento.';
+  const ACEITE = 'Autorizo o Prof. Josinelton a me enviar mensagens com dicas de TAF e novidades do Treinador TAF. Posso pedir para sair a qualquer momento.';
   const VERSAO = '1.1';
   const K = 'tafpprn.reg';
   const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
@@ -70,14 +70,14 @@
     document.getElementById('ch-no').onclick = () => { const x = ler(); x.semCidade = Date.now(); gravar(x); document.getElementById('com-hoje').remove(); };
   }
 
-  // Lista de contatos (com autorização expressa, LGPD) para dicas, novidades do app e a mentoria
+  // Lista de contatos (com autorização expressa, LGPD) para avisar sobre novidades do app
   const contatoValido = (c) => /@.+\./.test(c) || c.replace(/\D/g, '').length >= 10;
   function cartaoLead(view, onde) {
     const id = 'com-lead-' + onde, r = ler();
     if (document.getElementById(id)) return;
     if (r.lead) {
       if (onde === 'mais') {
-        view.insertAdjacentHTML('beforeend', `<div class="card" id="${id}"><h3 style="margin:0 0 4px">📣 Dicas e mentoria</h3><p class="muted small" style="margin:0">✅ Você está na lista de contatos${r.leadNome ? ' como ' + esc(r.leadNome) : ''}. Vai receber dicas e o aviso quando a mentoria abrir.</p><button class="btn small ghost" id="${id}-sair" style="margin-top:8px">Sair da lista</button></div>`);
+        view.insertAdjacentHTML('beforeend', `<div class="card" id="${id}"><h3 style="margin:0 0 4px">📣 Novidades do app</h3><p class="muted small" style="margin:0">✅ Você está na lista de contatos${r.leadNome ? ' como ' + esc(r.leadNome) : ''}. Você vai ser avisado(a) das melhorias do app.</p><button class="btn small ghost" id="${id}-sair" style="margin-top:8px">Sair da lista</button></div>`);
         document.getElementById(id + '-sair').onclick = () => {
           const x = ler(), dados = { tipo: 'descadastro', nome: x.leadNome, contato: x.leadContato }; delete x.lead; delete x.leadNome; delete x.leadContato; x.semLead = Date.now(); gravar(x); enviar(dados);
           toast('Pronto: você saiu da lista.'); document.getElementById(id).remove(); cartaoLead(view, onde);
@@ -85,22 +85,18 @@
       }
       return;
     }
-    view.insertAdjacentHTML('beforeend', `<div class="card ${onde === 'hoje' ? 'tip' : ''}" id="${id}"><h3 style="margin:0 0 4px">📣 Dicas de TAF e a mentoria do Prof. Josinelton</h3>
-      <p class="muted small" style="margin:0 0 6px">Deixe seu contato para receber dicas de treino, novidades do app e ser avisado(a) quando abrir a mentoria de estudos para concursos. É gratuito e opcional.</p>
+    view.insertAdjacentHTML('beforeend', `<div class="card ${onde === 'hoje' ? 'tip' : ''}" id="${id}"><h3 style="margin:0 0 4px">📣 Quer saber das novidades do app?</h3>
+      <p class="muted small" style="margin:0 0 6px">Deixe seu contato para ser avisado(a) quando sair uma melhoria que os usuários pediram, além de dicas de TAF. É gratuito e opcional.</p>
       <label style="margin:4px 0">Seu nome<input id="${id}-nome" maxlength="60" autocomplete="name"></label>
       <label style="margin:4px 0">WhatsApp (com DDD) ou e-mail<input id="${id}-cont" maxlength="80" inputmode="email" placeholder="84 9 9999-9999"></label>
-      <p class="small" style="margin:8px 0 2px">Quero receber:</p>
-      <label class="check" style="margin:2px 0"><input type="checkbox" id="${id}-app" checked> Dicas de TAF e novidades do app</label>
-      <label class="check" style="margin:2px 0"><input type="checkbox" id="${id}-ment" checked> Aviso da mentoria para concursos</label>
       <label class="check" style="margin:8px 0;align-items:flex-start"><input type="checkbox" id="${id}-ok"> <span class="small">${ACEITE}</span></label>
-      <div style="display:flex;gap:8px"><button class="btn small" id="${id}-env" style="flex:1">Quero receber</button>${onde === 'hoje' ? `<button class="btn small ghost" id="${id}-no">Agora não</button>` : ''}</div></div>`);
+      <div style="display:flex;gap:8px"><button class="btn small" id="${id}-env" style="flex:1">Quero ser avisado(a)</button>${onde === 'hoje' ? `<button class="btn small ghost" id="${id}-no">Agora não</button>` : ''}</div></div>`);
     const g = (k) => document.getElementById(id + '-' + k);
     g('env').onclick = () => {
       const nome = g('nome').value.trim(), cont = g('cont').value.trim();
-      const int = [g('app').checked && 'app', g('ment').checked && 'mentoria'].filter(Boolean).join(' + ');
+      const int = 'novidades do app';
       if (nome.length < 2) return toast('Escreva seu nome.');
       if (!contatoValido(cont)) return toast('Confira o WhatsApp (com DDD) ou o e-mail.');
-      if (!int) return toast('Marque o que quer receber.');
       if (!g('ok').checked) return toast('Marque a autorização para podermos enviar mensagens.');
       const [cid, uf] = (ler().cidade || '').split('/');
       const x = ler(); x.lead = Date.now(); x.leadNome = nome; x.leadContato = cont; gravar(x);
@@ -162,10 +158,10 @@
     }
     if (rota === 'mais') {
       // fica antes do cartão de apoio
-      cartaoLead(view, 'mais'); cartaoIndicar(view); cartaoMais(view);
+      cartaoMais(view); cartaoLead(view, 'mais'); cartaoIndicar(view);
       view.querySelectorAll('p.muted.small.center').forEach((p) => { if (p.textContent.includes('versão 1.0')) p.textContent = 'Treinador TAF · versão ' + VERSAO + ' · treinos, peso e dores ficam só neste aparelho.'; });
       const ap = document.getElementById('apoio-card');
-      if (ap) ['com-lead-mais', 'com-ind', 'com-mais'].forEach((k) => { const c = document.getElementById(k); if (c && ap.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) view.insertBefore(c, ap); });
+      if (ap) ['com-mais', 'com-lead-mais', 'com-ind'].forEach((k) => { const c = document.getElementById(k); if (c && ap.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) view.insertBefore(c, ap); });
     }
   }
   new MutationObserver(decorar).observe(document.getElementById('view'), { childList: true });
