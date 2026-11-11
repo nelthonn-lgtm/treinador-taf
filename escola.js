@@ -48,7 +48,7 @@ const AULAS = [
     p: ['Leve: passos curtos, relaxado, respiração 3:3.', 'Ritmo de prova: mesma postura, braços mais ativos, cadência um pouco maior.', 'Final forte: aumente a frequência dos passos e dos braços; o joelho sobe um pouco mais.', 'Em qualquer velocidade, o pé continua caindo embaixo do quadril.'],
     pr: 'Faça 4 acelerações de 20 segundos no fim da corrida leve, crescendo aos poucos.', q: 'técnica de corrida em diferentes velocidades acelerações strides',
     quiz: ['Para correr mais rápido, o primeiro ajuste é…', ['Esticar muito a passada', 'Aumentar a frequência dos passos e dos braços', 'Inclinar o tronco a partir da cintura'], 1] },
-  { id: 'lesao', ic: '🛡️', t: 'Correr sem se machucar',
+  { id: 'lesao', ic: '🛡️', t: 'Cuidados para evitar lesões',
     p: ['A maioria das lesões de corrida vem de carga demais, cedo demais.', 'Regra prática: não aumente o volume semanal mais que ~10%. O plano do app já controla isso.', 'Dia forte seguido de dia leve. Durma 7 a 9 h.', 'Glúteo, coxa e panturrilha fortes protegem o joelho: não pule a força.', 'Dor que muda o jeito de correr, que aumenta durante o treino ou piora no dia seguinte = pare e, se continuar, procure avaliação.'],
     pr: 'Faça o check-in de dor todos os dias: o app reduz o treino quando o joelho reclama.', q: 'como evitar lesões na corrida iniciante fisioterapeuta',
     quiz: ['Qual é a principal causa de lesão em quem está começando?', ['Aumentar o treino rápido demais', 'Correr devagar', 'Fazer fortalecimento'], 0] },
@@ -105,9 +105,9 @@ function hub() {
   const { S } = sessoes();
   const bloq = (k) => j !== null && j >= S[k].minJ;
   return `<header class="top"><a href="#mais" class="back">‹</a><h1>Escola de corrida</h1></header>
-  <div class="card hl" id="esc-hub"><h3>🏃 Aprenda a correr melhor, sem se machucar</h3>
+  <div class="card hl" id="esc-hub"><h3>🏃 Conteúdos sobre técnica de corrida</h3>
     <p class="muted small">Aulas de 2 minutos, treinos guiados com voz e ferramentas para medir sua técnica, voltados para a corrida de 12 minutos do TAF.</p>
-    <p class="small">🔬 <b>Técnicas baseadas em ciência:</b> o conteúdo segue estudos de biomecânica da corrida e de treinamento esportivo (cadência, aterrissagem, prevenção de lesões, economia de corrida e estratégia de ritmo).</p>
+    <p class="small">ℹ️ <b>De onde vem o conteúdo:</b> As técnicas e dicas foram reunidas de estudos publicados sobre corrida e de vídeos em que profissionais de Educação Física e fisioterapeutas ensinam essas técnicas no YouTube. São informações gerais: o app não faz prescrição individual de exercícios.</p>
     <div class="xp"><div class="bar"><i style="width:${Math.round(feitas / AULAS.length * 100)}%"></i></div></div>
     <p class="small"><b>${feitas} de ${AULAS.length} aulas concluídas</b>${prox ? ` · próxima: ${prox.ic} ${prox.t}` : ' · todas feitas! 🎉'}</p>
     ${prox ? `<a class="btn" href="${BASE}=aula-${prox.id}">Fazer a próxima aula</a>` : ''}</div>
@@ -117,7 +117,7 @@ function hub() {
     <ul class="hist">${Object.entries(S).map(([k, s]) => `<li><div><b>${s.t}</b><br><span class="muted small">${s.d}</span></div>${bloq(k) ? '<span class="small">🔒 joelho</span>' : `<a class="btn small" href="${BASE}=sessao-${k}">Iniciar</a>`}</li>`).join('')}</ul></div>
   <div class="card"><h3>📏 Medir minha cadência</h3><p class="muted small">${ult ? `Última medição: <b>${ult.v} passos/min</b> (${ult.d.split('-').reverse().join('/')}). ` : ''}Metrônomo da tela Correr: <b>${cadAlvo} passos/min</b>.</p><a class="btn ghost" href="${BASE}=cadencia">Medir agora</a></div>
   <div class="card"><h3>🎥 Autoavaliação por vídeo</h3><p class="muted small">Peça para alguém filmar 10 segundos de você correndo e confira a técnica num checklist.${e.video.length ? ` Última nota: <b>${e.video[e.video.length - 1].n}/8</b>.` : ''}</p><a class="btn ghost" href="${BASE}=video">Fazer autoavaliação</a></div>
-  <div class="card" id="esc-sobre"><h3>👨‍🏫 Quem criou</h3><p class="small">O Treinador TAF foi desenvolvido pelo <b>Prof. Josinelton</b>, concurseiro e programador. Como sabe programar, ele criou este app para organizar os próprios treinos para o TAF de concursos e decidiu compartilhá-lo com outros candidatos.</p><p class="muted small">O app ajuda a treinar com segurança, mas não substitui a avaliação de um educador físico ou de um médico.</p></div>
+  <div class="card" id="esc-sobre"><h3>👨‍🏫 Quem criou</h3><p class="small">O Treinador TAF foi desenvolvido pelo <b>Prof. Josinelton</b>, professor de Educação Especial, concurseiro e programador. Ele <b>não é profissional de Educação Física</b>: criou o app para organizar os próprios treinos para o TAF de concursos e decidiu compartilhá-lo com outros candidatos.</p><p class="small">As técnicas e dicas foram reunidas de estudos publicados sobre corrida e de vídeos em que profissionais de Educação Física e fisioterapeutas ensinam essas técnicas no YouTube. São informações gerais: o app não faz prescrição individual de exercícios.</p><p class="muted small">Antes de começar, faça avaliação médica e, se possível, treine com acompanhamento de um profissional de Educação Física registrado no CREF.</p></div>
   <div class="card"><h3>📖 Guia completo</h3><p class="muted small">Todas as dicas num só lugar, com a tabela de ritmo dos 12 minutos.</p><a class="btn ghost" href="#dicas?corrida">Abrir o guia</a></div>`;
 }
 
@@ -281,7 +281,7 @@ function atalhos() {
   }
   if (rota === 'mais' && !document.getElementById('sobre-app')) {
     const ap = document.getElementById('apoio-card');
-    const html = `<div class="card" id="sobre-app"><h3>👨‍🏫 Sobre o app</h3><p class="small">O Treinador TAF foi desenvolvido pelo <b>Prof. Josinelton</b>, concurseiro e programador. Como sabe programar, ele criou este app para organizar os próprios treinos para o TAF de concursos e decidiu compartilhá-lo com outros candidatos.</p><p class="small">🔬 Os treinos e as técnicas de corrida seguem o que a ciência mostra sobre biomecânica, prevenção de lesões e treinamento para o teste de 12 minutos.</p><p class="muted small">Não substitui a avaliação de um educador físico ou de um médico.</p></div>`;
+    const html = `<div class="card" id="sobre-app"><h3>👨‍🏫 Sobre o app</h3><p class="small">O Treinador TAF foi desenvolvido pelo <b>Prof. Josinelton</b>, professor de Educação Especial, concurseiro e programador. Ele <b>não é profissional de Educação Física</b>: criou o app para organizar os próprios treinos para o TAF de concursos e decidiu compartilhá-lo com outros candidatos.</p><p class="small">ℹ️ As técnicas e dicas foram reunidas de estudos publicados sobre corrida e de vídeos em que profissionais de Educação Física e fisioterapeutas ensinam essas técnicas no YouTube. São informações gerais: o app não faz prescrição individual de exercícios.</p><p class="muted small">Antes de começar, faça avaliação médica e, se possível, treine com acompanhamento de um profissional de Educação Física registrado no CREF.</p></div>`;
     if (ap) ap.insertAdjacentHTML('beforebegin', html); else view.insertAdjacentHTML('beforeend', html);
   }
   if ((rota === 'dicas' || rota === 'correr') && !document.getElementById('esc-atalho')) {

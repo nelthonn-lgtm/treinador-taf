@@ -29,6 +29,7 @@ function tabelaRitmo(m) {
 function guia() {
   const m = metasCorrida();
   return `<header class="top"><a href="#dicas?escola" class="back">‹</a><h1>Guia de corrida</h1></header>
+  <p class="nota">ℹ️ As técnicas e dicas foram reunidas de estudos publicados sobre corrida e de vídeos em que profissionais de Educação Física e fisioterapeutas ensinam essas técnicas no YouTube. São informações gerais: o app não faz prescrição individual de exercícios. O criador do app não é profissional de Educação Física. Antes de começar, faça avaliação médica e, se possível, treine com acompanhamento de um profissional de Educação Física registrado no CREF.</p>
   <div class="card hl" id="tec-guia"><h3>🏃 As 6 regras de ouro</h3><ol>
     <li><b>Corpo alto e levemente inclinado para a frente</b>, a partir do tornozelo, não da cintura.</li>
     <li><b>Passos curtos e rápidos.</b> O pé toca o chão embaixo do quadril, nunca lá na frente.</li>
@@ -62,7 +63,7 @@ function guia() {
     <li><b>Pontada do lado:</b> diminua o ritmo, solte o ar com força e pressione o local com a mão por alguns passos. Evite comer muito 2 horas antes.</li></ul>
     <div class="row gap wrap">${vid('Como respirar correndo', 'como respirar corretamente na corrida iniciante')}${vid('Dor do lado (pontada)', 'dor do lado correndo pontada como evitar')}</div></div>
 
-  <div class="card warn"><h3>4. Correr sem se machucar</h3><ul>
+  <div class="card warn"><h3>4. Cuidados para evitar lesões</h3><ul>
     <li><b>Regra dos 10%:</b> não aumente o volume da semana (tempo ou km) mais que 10% de uma semana para outra. O plano do app já faz isso por você.</li>
     <li><b>Dia leve depois de dia forte.</b> Nunca dois treinos intensos seguidos.</li>
     <li><b>Aqueça sempre:</b> 5 a 10 minutos de caminhada e trote leve antes de qualquer ritmo forte.</li>

@@ -1,5 +1,5 @@
 // Cache do app para funcionar offline (o mapa precisa de internet).
-const V = 'taf-v8';
+const V = 'taf-v9';
 const ARQ = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'app.js', 'store.js', 'program.js', 'devices.js', 'concursos.js', 'perfis.js', 'videos.js', 'install.js', 'apoio.js', 'comunidade.js', 'tecnica.js', 'escola.js', 'icon-192.png', 'icon-512.png', 'privacidade.html'];
 const CDN = ['https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then(async (c) => { await c.addAll(ARQ); await Promise.all(CDN.map((u) => c.add(new Request(u, { mode: 'cors' })).catch(() => {}))); }).then(() => self.skipWaiting())); });
