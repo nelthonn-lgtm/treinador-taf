@@ -1,8 +1,8 @@
 // "Apoie o projeto": quadro compacto com mascote animado; o Pix abre ao tocar.
 (function () {
   const CHAVE = 'abd3df69-e7f5-4666-b746-e83ba2afdca5';
-  const NOME_EXIBIDO = 'Francisco Josinelton Freitas de Araújo';
-  const NOME_PIX = 'Francisco Josinelton'; // o padrão Pix aceita até 25 caracteres, sem acento
+  const NOME_EXIBIDO = 'Francisco J. F. Araújo';
+  const NOME_PIX = 'Francisco J F Araujo'; // o padrão Pix aceita até 25 caracteres, sem acento
   const CIDADE = 'CAICO';
 
   const campo = (id, v) => id + String(v.length).padStart(2, '0') + v;
