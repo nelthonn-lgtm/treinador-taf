@@ -4,7 +4,7 @@
   const FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSeOc4xsEHWO7PdqpX3gJ6t3dA-d0UYH9-VGQT1rDUUDPhZIcw/formResponse';
   const E = { tipo: 'entry.447516661', cidade: 'entry.564372988', uf: 'entry.1793891250', concurso: 'entry.862926955', versao: 'entry.1573682729', modo: 'entry.1113202775', mensagem: 'entry.1494306158', contato: 'entry.815182519', nome: 'entry.1468400997', interesse: 'entry.1610901043', aceite: 'entry.587729189' };
   const LINK = 'https://nelthonn-lgtm.github.io/treinador-taf/';
-  const ACEITE = 'Autorizo o Prof. Josinelton a me enviar mensagens com dicas de TAF e novidades do Treinador TAF. Posso pedir para sair a qualquer momento.';
+  const ACEITE = 'Autorizo o Prof. Araújo a me enviar mensagens com dicas de TAF e novidades do Treinador TAF. Posso pedir para sair a qualquer momento.';
   const VERSAO = '1.1';
   const K = 'tafpprn.reg';
   const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
