@@ -28,7 +28,7 @@ function tabelaRitmo(m) {
 
 function guia() {
   const m = metasCorrida();
-  return `<header class="top"><a href="#mais" class="back">‹</a><h1>Técnica de corrida</h1></header>
+  return `<header class="top"><a href="#dicas?escola" class="back">‹</a><h1>Guia de corrida</h1></header>
   <div class="card hl" id="tec-guia"><h3>🏃 As 6 regras de ouro</h3><ol>
     <li><b>Corpo alto e levemente inclinado para a frente</b>, a partir do tornozelo, não da cintura.</li>
     <li><b>Passos curtos e rápidos.</b> O pé toca o chão embaixo do quadril, nunca lá na frente.</li>
@@ -123,23 +123,7 @@ function mostrar() {
   window.scrollTo(0, 0);
 }
 
-// Atalhos para o guia: menu Mais, topo da página Dicas e tela Correr
-function atalhos() {
-  const rota = document.body.dataset.rota, view = document.getElementById('view');
-  if (!view) return;
-  if (rota === 'mais') {
-    const menu = view.querySelector('.menu'), dic = menu && menu.querySelector('a[href="#dicas"]');
-    if (dic && !menu.querySelector('a[href="' + HASH + '"]')) dic.insertAdjacentHTML('beforebegin', `<a href="${HASH}">🏃 Técnica de corrida: sem lesão e mais rápido</a>`);
-  }
-  if ((rota === 'dicas' || rota === 'correr') && !document.getElementById('tec-atalho')) {
-    const h = view.querySelector('header.top');
-    const html = `<a class="card tip" id="tec-atalho" href="${HASH}" style="display:block;text-decoration:none;color:inherit"><b>🏃 Técnica de corrida</b><br><span class="muted small">Postura, passada, respiração, como evitar lesões, educativos, treinos de velocidade e a tabela de ritmo dos 12 minutos, com vídeos.</span></a>`;
-    // na tela Correr fica no fim, para não atrapalhar a corrida em andamento
-    if (rota === 'dicas' && h) h.insertAdjacentHTML('afterend', html); else view.insertAdjacentHTML('beforeend', html);
-  }
-}
-
-function tick() { mostrar(); atalhos(); }
+function tick() { mostrar(); }
 new MutationObserver(tick).observe(document.getElementById('view'), { childList: true });
 window.addEventListener('hashchange', () => setTimeout(tick, 60));
 setTimeout(tick, 300);
