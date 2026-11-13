@@ -417,7 +417,7 @@ rotas.correr = () => {
     modal(`<h3>${simul ? 'Resultado do simulado' : 'Corrida finalizada'}</h3>
       <div class="metrics small"><div class="m"><small>Distância</small><b>${dist} m</b></div><div class="m"><small>Tempo</small><b>${D.fmtTempo(dur)}</b></div><div class="m"><small>Pace</small><b>${D.fmtPace(rast.paceMedio())}</b></div></div>
       ${simul ? `<p>${dist >= META ? '🥇 Meta batida!' : dist >= MIN ? '✅ Acima do mínimo do edital.' : `Faltaram ${MIN - dist} m para o mínimo do edital.`}</p>` : ''}
-      ${rast.gapAviso ? '<p class="nota">O GPS ficou sem sinal por alguns trechos (tela apagada ou túnel). A distância pode estar menor que a real.</p>' : ''}
+      ${rast.gapAviso ? `<p class="nota">⚠️ O GPS ficou parado por ${rast.gapS < 60 ? Math.round(rast.gapS) + ' s' : Math.round(rast.gapS / 60) + ' min'} (tela apagada ou app em segundo plano). Esse trecho foi estimado pelo seu ritmo (cerca de ${Math.round(rast.gapM)} m) e pode ter pequena diferença. Para medir certo, deixe a tela ligada com o app aberto durante a corrida.</p>` : ''}
       <p>Como ficaram as articulações depois do treino?</p>${slider('fj', 'Joelhos')}${slider('fo', 'Ombros')}
       <label>Esforço percebido (1 = muito fácil, 10 = máximo)<input type="range" id="frpe" min="1" max="10" value="5"></label>
       <label>Anotações<input id="fnota" placeholder="Piso, clima, sensação…"></label>
